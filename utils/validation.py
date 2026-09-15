@@ -3,7 +3,7 @@ import re
 from typing import Optional
 
 KRI_TITLE_RE = re.compile(r"^[A-Za-z0-9 ]+$")
-THRESHOLD_RE = re.compile(r"^[0-9><%]+$")
+THRESHOLD_RE = re.compile(r"^[0-9><%=.\-]+$")
 
 
 def missing_required_fields(fields: dict) -> list[str]:
@@ -25,5 +25,5 @@ def validate_kri_title(title: str) -> Optional[str]:
 
 def validate_threshold(label: str, value: str) -> Optional[str]:
     if not THRESHOLD_RE.match(value.strip()):
-        return f"{label} threshold may only contain digits, >, <, and %."
+        return f"{label} threshold may only contain digits, >, <, %, =, ., and -."
     return None
