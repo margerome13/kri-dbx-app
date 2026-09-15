@@ -13,6 +13,7 @@ from utils.db import (
     run_statement,
     sql_literal,
 )
+from utils.forms import bump_and_rerun, form_gen, render_pending_banner
 
 st.header("Lookup Values", divider=True)
 st.write(
@@ -35,14 +36,19 @@ tab_add, tab_edit, tab_deactivate = st.tabs(["Add a value", "Edit a value", "Dea
 with tab_add:
     next_id = next_lookup_id(lookup_type)
     st.caption(f"This value will be assigned **id {next_id}** within '{lookup_type}' — ids are auto-assigned and cannot be edited.")
-    with st.form("add_lookup_value", clear_on_submit=True):
-        new_value = st.text_input("Value")
+
+    gen = form_gen("add_lookup")
+    with st.form(f"add_lookup_value_{gen}"):
+        banner = st.empty()
+        render_pending_banner("add_lookup", banner)
+
+        new_value = st.text_input("Value", key=f"add_lookup_value_input_{gen}")
         add_submitted = st.form_submit_button("Add")
         if add_submitted:
             if not new_value.strip():
-                st.error("Value is required.")
+                banner.error("Value is required.")
             elif new_value.strip() in values_df["lookup_value"].tolist():
-                st.error(f"'{new_value.strip()}' already exists for '{lookup_type}'.")
+                banner.error(f"'{new_value.strip()}' already exists for '{lookup_type}'.")
             else:
                 user = current_user_email()
                 row = {
@@ -61,8 +67,8 @@ with tab_add:
                     changed_by=user,
                     after=row,
                 )
-                st.success(f"Added '{new_value}' as id {next_id}.")
                 st.cache_data.clear()
+                bump_and_rerun("add_lookup", f"Added '{new_value.strip()}' as id {next_id}.")
 
 with tab_edit:
     st.write(
@@ -82,6 +88,9 @@ with tab_edit:
         current_value = values_df.loc[values_df["id"] == editable_id, "lookup_value"].iloc[0]
 
         with st.form("edit_lookup_value"):
+            edit_banner = st.empty()
+            render_pending_banner("edit_lookup", edit_banner)
+
             st.text_input("ID (auto-assigned, not editable)", value=str(editable_id), disabled=True)
             new_text = st.text_input("Value", value=current_value)
             save = st.form_submit_button("Save rename", type="primary")
@@ -89,11 +98,11 @@ with tab_edit:
             if save:
                 new_text = new_text.strip()
                 if not new_text:
-                    st.error("Value is required.")
+                    edit_banner.error("Value is required.")
                 elif new_text == current_value:
-                    st.info("No change.")
+                    edit_banner.info("No change.")
                 elif new_text in values_df["lookup_value"].tolist():
-                    st.error(f"'{new_text}' already exists for '{lookup_type}'.")
+                    edit_banner.error(f"'{new_text}' already exists for '{lookup_type}'.")
                 else:
                     user = current_user_email()
                     run_statement(
@@ -112,11 +121,12 @@ with tab_edit:
                         before={"lookup_value": current_value},
                         after={"lookup_value": new_text, "cascaded_to": cascaded},
                     )
-                    st.success(f"Renamed '{current_value}' to '{new_text}'.")
+                    message = f"Renamed '{current_value}' to '{new_text}'."
                     if cascaded:
                         details = ", ".join(f"{n} row(s) in {t}" for t, n in cascaded.items())
-                        st.info(f"Also updated existing records to match: {details}.")
+                        message += f" Also updated existing records to match: {details}."
                     st.cache_data.clear()
+                    bump_and_rerun("edit_lookup", message, bump=False)
 
 with tab_deactivate:
     active_df = values_df[values_df["is_active"]]
@@ -124,6 +134,9 @@ with tab_deactivate:
         st.info("No active values to deactivate.")
     else:
         with st.form("deactivate_lookup_value"):
+            deactivate_banner = st.empty()
+            render_pending_banner("deactivate_lookup", deactivate_banner)
+
             id_to_deactivate = st.selectbox(
                 "Value",
                 active_df["id"].tolist(),
@@ -148,5 +161,5 @@ with tab_deactivate:
                     changed_by=user,
                     after={"is_active": False},
                 )
-                st.success(f"Deactivated '{value_text}'.")
                 st.cache_data.clear()
+                bump_and_rerun("deactivate_lookup", f"Deactivated '{value_text}'.", bump=False)

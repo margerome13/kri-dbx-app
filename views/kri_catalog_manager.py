@@ -14,6 +14,7 @@ from utils.db import (
     run_statement,
     sql_literal,
 )
+from utils.forms import bump_and_rerun, form_gen, render_pending_banner
 from utils.validation import missing_required_fields, validate_kri_title, validate_threshold
 
 st.header("KRI Catalog Manager", divider=True)
@@ -32,35 +33,47 @@ units = fetch_lookup("unit_of_measure")
 statuses = fetch_lookup("kri_status")
 
 with tab_add:
-    with st.form("add_kri_form", clear_on_submit=True):
+    gen = form_gen("add_kri")
+    with st.form(f"add_kri_form_{gen}"):
+        banner = st.empty()
+        render_pending_banner("add_kri", banner)
+
         col1, col2, col3 = st.columns(3)
         with col1:
-            entity = st.selectbox("Entity", entities)
+            entity = st.selectbox("Entity", entities, key=f"add_kri_entity_{gen}")
         with col2:
-            department = st.selectbox("Department", departments)
+            department = st.selectbox("Department", departments, key=f"add_kri_department_{gen}")
         with col3:
-            risk_category = st.selectbox("Risk category", risk_categories)
+            risk_category = st.selectbox(
+                "Risk category", risk_categories, key=f"add_kri_risk_category_{gen}"
+            )
 
-        kri_title = st.text_input("KRI title")
-        description = st.text_area("Description / calculation formula", height=100)
+        kri_title = st.text_input("KRI title", key=f"add_kri_title_{gen}")
+        description = st.text_area(
+            "Description / calculation formula", height=100, key=f"add_kri_description_{gen}"
+        )
 
         col4, col5 = st.columns(2)
         with col4:
-            frequency = st.selectbox("Frequency", frequencies)
+            frequency = st.selectbox("Frequency", frequencies, key=f"add_kri_frequency_{gen}")
         with col5:
-            unit_of_measure = st.selectbox("Unit of measure", units)
+            unit_of_measure = st.selectbox("Unit of measure", units, key=f"add_kri_unit_{gen}")
 
-        data_source = st.text_input("Data source / point of contact")
+        data_source = st.text_input(
+            "Data source / point of contact", key=f"add_kri_data_source_{gen}"
+        )
 
         col6, col7, col8 = st.columns(3)
         with col6:
-            threshold_green = st.text_input("Green threshold")
+            threshold_green = st.text_input("Green threshold", key=f"add_kri_green_{gen}")
         with col7:
-            threshold_amber = st.text_input("Amber threshold")
+            threshold_amber = st.text_input("Amber threshold", key=f"add_kri_amber_{gen}")
         with col8:
-            threshold_red = st.text_input("Red threshold")
+            threshold_red = st.text_input("Red threshold", key=f"add_kri_red_{gen}")
 
-        date_approved = st.date_input("Date approved", value=date.today())
+        date_approved = st.date_input(
+            "Date approved", value=date.today(), key=f"add_kri_date_{gen}"
+        )
 
         submitted = st.form_submit_button("Add KRI", type="primary")
         if submitted:
@@ -101,7 +114,7 @@ with tab_add:
                         errors.append(threshold_error)
 
             if errors:
-                st.error("\n".join(f"- {e}" for e in errors))
+                banner.error("\n".join(f"- {e}" for e in errors))
             else:
                 user = current_user_email()
                 row = {
@@ -137,8 +150,8 @@ with tab_add:
                     changed_by=user,
                     after=row,
                 )
-                st.success(f"KRI '{kri_title}' added.")
                 st.cache_data.clear()
+                bump_and_rerun("add_kri", f"KRI '{kri_title.strip()}' added.")
 
 with tab_manage:
     filter_entity = st.selectbox("Filter by entity", ["All"] + entities, key="manage_filter_entity")
@@ -162,6 +175,9 @@ with tab_manage:
         row = catalog_df[catalog_df["kri_id"] == selected_id].iloc[0]
 
         with st.form("edit_kri_form"):
+            edit_banner = st.empty()
+            render_pending_banner("edit_kri", edit_banner)
+
             col1, col2, col3 = st.columns(3)
             with col1:
                 new_green = st.text_input("Green threshold", value=row["threshold_green"] or "")
@@ -187,26 +203,25 @@ with tab_manage:
                             errors.append(threshold_error)
 
                 if errors:
-                    st.error("\n".join(f"- {e}" for e in errors))
-                    st.stop()
-
-                user = current_user_email()
-                set_values = {
-                    "threshold_green": new_green.strip() or None,
-                    "threshold_amber": new_amber.strip() or None,
-                    "threshold_red": new_red.strip() or None,
-                    "kri_status": new_status,
-                    "updated_by": user,
-                    "updated_at": now_utc(),
-                }
-                run_statement(build_update(TBL_CATALOG, set_values, {"kri_id": int(selected_id)}))
-                log_change(
-                    table_name="kri_catalog",
-                    record_key=int(selected_id),
-                    action="UPDATE",
-                    changed_by=user,
-                    before=row.to_dict(),
-                    after={**row.to_dict(), **set_values},
-                )
-                st.success("KRI updated.")
-                st.cache_data.clear()
+                    edit_banner.error("\n".join(f"- {e}" for e in errors))
+                else:
+                    user = current_user_email()
+                    set_values = {
+                        "threshold_green": new_green.strip() or None,
+                        "threshold_amber": new_amber.strip() or None,
+                        "threshold_red": new_red.strip() or None,
+                        "kri_status": new_status,
+                        "updated_by": user,
+                        "updated_at": now_utc(),
+                    }
+                    run_statement(build_update(TBL_CATALOG, set_values, {"kri_id": int(selected_id)}))
+                    log_change(
+                        table_name="kri_catalog",
+                        record_key=int(selected_id),
+                        action="UPDATE",
+                        changed_by=user,
+                        before=row.to_dict(),
+                        after={**row.to_dict(), **set_values},
+                    )
+                    st.cache_data.clear()
+                    bump_and_rerun("edit_kri", "KRI updated.", bump=False)

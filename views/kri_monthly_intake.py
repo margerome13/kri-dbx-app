@@ -16,6 +16,7 @@ from utils.db import (
     run_statement,
     sql_literal,
 )
+from utils.forms import bump_and_rerun, render_pending_banner
 
 st.header("Submit / Edit Monthly KRI", divider=True)
 st.write(
@@ -83,6 +84,9 @@ if existing is not None:
     )
 
 with st.form("kri_submission_form"):
+    banner = st.empty()
+    render_pending_banner("kri_submission", banner)
+
     actual_value_text = st.text_input(
         f"Actual value ({kri_row['unit_of_measure'] or 'as reported'})",
         value="" if existing is None else str(existing["actual_value_text"] or ""),
@@ -101,10 +105,14 @@ with st.form("kri_submission_form"):
     submitted = st.form_submit_button("Save submission", type="primary")
 
     if submitted:
+        errors = []
         if not actual_value_text.strip():
-            st.error("Actual value is required.")
-        elif rag_status in ("Amber", "Red") and not remarks.strip():
-            st.error("Remarks are required when RAG status is Amber or Red.")
+            errors.append("Actual value is required.")
+        if rag_status in ("Amber", "Red") and not remarks.strip():
+            errors.append("Remarks are required when RAG status is Amber or Red.")
+
+        if errors:
+            banner.error("\n".join(f"- {e}" for e in errors))
         else:
             try:
                 numeric_value = pd.to_numeric(
@@ -142,5 +150,5 @@ with st.form("kri_submission_form"):
                 before=None if existing is None else existing.to_dict(),
                 after=row,
             )
-            st.success("Submission saved.")
             st.cache_data.clear()
+            bump_and_rerun("kri_submission", "Submission saved.", bump=False)
