@@ -14,6 +14,7 @@ from utils.db import (
     run_statement,
     sql_literal,
 )
+from utils.validation import missing_required_fields, validate_kri_title, validate_threshold
 
 st.header("KRI Catalog Manager", divider=True)
 st.write(
@@ -63,8 +64,44 @@ with tab_add:
 
         submitted = st.form_submit_button("Add KRI", type="primary")
         if submitted:
-            if not kri_title.strip():
-                st.error("KRI title is required.")
+            errors = []
+
+            missing = missing_required_fields(
+                {
+                    "Entity": entity,
+                    "Department": department,
+                    "Risk category": risk_category,
+                    "KRI title": kri_title,
+                    "Description": description,
+                    "Frequency": frequency,
+                    "Unit of measure": unit_of_measure,
+                    "Data source / point of contact": data_source,
+                    "Green threshold": threshold_green,
+                    "Amber threshold": threshold_amber,
+                    "Red threshold": threshold_red,
+                    "Date approved": date_approved,
+                }
+            )
+            if missing:
+                errors.append(f"Missing/blank required field(s): {', '.join(missing)}.")
+
+            if "KRI title" not in missing:
+                title_error = validate_kri_title(kri_title)
+                if title_error:
+                    errors.append(title_error)
+
+            for label, value in [
+                ("Green", threshold_green),
+                ("Amber", threshold_amber),
+                ("Red", threshold_red),
+            ]:
+                if f"{label} threshold" not in missing:
+                    threshold_error = validate_threshold(label, value)
+                    if threshold_error:
+                        errors.append(threshold_error)
+
+            if errors:
+                st.error("\n".join(f"- {e}" for e in errors))
             else:
                 user = current_user_email()
                 row = {
@@ -138,6 +175,21 @@ with tab_manage:
             save = st.form_submit_button("Save changes", type="primary")
 
             if save:
+                errors = []
+                for label, value in [
+                    ("Green", new_green),
+                    ("Amber", new_amber),
+                    ("Red", new_red),
+                ]:
+                    if value.strip():
+                        threshold_error = validate_threshold(label, value)
+                        if threshold_error:
+                            errors.append(threshold_error)
+
+                if errors:
+                    st.error("\n".join(f"- {e}" for e in errors))
+                    st.stop()
+
                 user = current_user_email()
                 set_values = {
                     "threshold_green": new_green.strip() or None,
