@@ -15,7 +15,12 @@ from utils.db import (
     sql_literal,
 )
 from utils.forms import bump_and_rerun, form_gen, render_pending_banner
-from utils.validation import missing_required_fields, validate_kri_title, validate_threshold
+from utils.validation import (
+    UNIT_FORMAT_HINTS,
+    missing_required_fields,
+    validate_kri_title,
+    validate_threshold,
+)
 
 st.header("KRI Catalog Manager", divider=True)
 st.write(
@@ -63,6 +68,15 @@ with tab_add:
             "Data source / point of contact", key=f"add_kri_data_source_{gen}"
         )
 
+        if unit_of_measure and unit_of_measure != "Status / Narrative":
+            hint = UNIT_FORMAT_HINTS.get(unit_of_measure, "a plain number, optionally with %")
+            st.caption(
+                f"Thresholds for **{unit_of_measure}**: each value must be {hint}. "
+                f"A range like \">=75%-90%\" is fine; the left side must be lower than the right."
+            )
+        elif unit_of_measure == "Status / Narrative":
+            st.caption("Thresholds for **Status / Narrative** KRIs are free text, e.g. \"On-time\".")
+
         col6, col7, col8 = st.columns(3)
         with col6:
             threshold_green = st.text_input("Green threshold", key=f"add_kri_green_{gen}")
@@ -109,7 +123,7 @@ with tab_add:
                 ("Red", threshold_red),
             ]:
                 if f"{label} threshold" not in missing:
-                    threshold_error = validate_threshold(label, value)
+                    threshold_error = validate_threshold(label, value, unit_of_measure)
                     if threshold_error:
                         errors.append(threshold_error)
 
@@ -178,6 +192,13 @@ with tab_manage:
             edit_banner = st.empty()
             render_pending_banner("edit_kri", edit_banner)
 
+            edit_unit = row["unit_of_measure"]
+            if edit_unit and edit_unit != "Status / Narrative":
+                hint = UNIT_FORMAT_HINTS.get(edit_unit, "a plain number, optionally with %")
+                st.caption(f"Thresholds for **{edit_unit}**: each value must be {hint}.")
+            elif edit_unit == "Status / Narrative":
+                st.caption("Thresholds for **Status / Narrative** KRIs are free text, e.g. \"On-time\".")
+
             col1, col2, col3 = st.columns(3)
             with col1:
                 new_green = st.text_input("Green threshold", value=row["threshold_green"] or "")
@@ -198,7 +219,7 @@ with tab_manage:
                     ("Red", new_red),
                 ]:
                     if value.strip():
-                        threshold_error = validate_threshold(label, value)
+                        threshold_error = validate_threshold(label, value, edit_unit)
                         if threshold_error:
                             errors.append(threshold_error)
 

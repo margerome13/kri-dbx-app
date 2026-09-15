@@ -55,6 +55,30 @@ already ran the original `001` (which used `sort_order` as a plain display-order
 with `(lookup_type, lookup_value)` as the primary key) — a fresh `001` already creates
 the current shape and `006` is a no-op you can skip.
 
+### Threshold format rules (unit-of-measure aware)
+
+Green/Amber/Red threshold validation in `utils/validation.py` depends on the KRI's
+`unit_of_measure`:
+
+| Unit | Format | Example |
+|---|---|---|
+| Percent | number + `%` | `75%`, `>=75%-90%` |
+| Ratio | decimal, up to 3 dp, no `%` | `0.753` |
+| Days | whole number, no decimal | `60`, `60-65` |
+| PHP Amount | decimal, up to 2 dp, no `%` | `1000000.00` |
+| Count | whole number, no decimal | `5` |
+| Status / Narrative | free text | `On-time` |
+
+Percent form was chosen over decimal form (`0.75`) for Percent-unit thresholds because
+it matches how thresholds are already communicated and is unambiguous in isolation
+(e.g. in an audit log entry) without cross-referencing the unit dropdown.
+
+For every unit except Status / Narrative, a `-` counts as a range separator only when
+it sits between two numbers/operators (e.g. `75%-90%`) — not when it's a leading
+negative sign (e.g. `-5%`). When it is a range (or a comparison like `>=75%-90%`), the
+left number must be strictly lower than the right one; internal whitespace is stripped
+first, so `75% - 90%` validates the same as `75%-90%`.
+
 ### Renaming a lookup value
 
 Department (and other lookup) names change over time. Use **Administration → Lookup
