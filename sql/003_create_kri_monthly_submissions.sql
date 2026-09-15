@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS dg_dev.sandbox.kri_monthly_submissions (
     actual_value_numeric DOUBLE COMMENT 'Parsed numeric value when actual_value_text is numeric/percentage, used for charting and aggregation. NULL for narrative KRIs.',
     rag_status            STRING NOT NULL COMMENT 'Green, Amber, or Red vs. the KRI thresholds at time of submission. See kri_lookup_values(rag_status).',
     remarks               STRING COMMENT 'Cause, action items, and target date narrative. Required in practice whenever rag_status is Amber or Red.',
-    workflow_status       STRING NOT NULL DEFAULT 'Submitted' COMMENT 'Draft, Submitted, Approved, or Rejected. See kri_lookup_values(workflow_status).',
+    workflow_status       STRING NOT NULL COMMENT 'Draft, Submitted, Approved, or Rejected. See kri_lookup_values(workflow_status). Always set explicitly by the app (Submitted on insert).',
     submitted_by         STRING NOT NULL COMMENT 'Email/user id of the department submitter.',
     submitted_at         TIMESTAMP NOT NULL,
     approved_by           STRING COMMENT 'Email/user id of the Risk reviewer, once approved.',

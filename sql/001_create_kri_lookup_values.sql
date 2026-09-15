@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS dg_dev.sandbox.kri_lookup_values (
     lookup_type   STRING NOT NULL COMMENT 'Category of value: entity, department, risk_category, frequency, unit_of_measure, kri_status, workflow_status, rag_status',
     lookup_value  STRING NOT NULL COMMENT 'Canonical display value shown in the app',
     sort_order    INT COMMENT 'Display order within a lookup_type, ascending',
-    is_active     BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'Inactive values are hidden from new entries but kept for historical records',
+    is_active     BOOLEAN NOT NULL COMMENT 'Inactive values are hidden from new entries but kept for historical records. Always set explicitly by the app.',
     created_by    STRING NOT NULL,
     created_at    TIMESTAMP NOT NULL,
     CONSTRAINT kri_lookup_values_pk PRIMARY KEY (lookup_type, lookup_value)

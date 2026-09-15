@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS dg_dev.sandbox.kri_catalog (
     threshold_green   STRING COMMENT 'Green (within appetite) threshold definition, kept as free text since thresholds are often ranges/prose.',
     threshold_amber   STRING COMMENT 'Amber (watch) threshold definition.',
     threshold_red     STRING COMMENT 'Red (breach) threshold definition.',
-    kri_status        STRING NOT NULL DEFAULT 'Active' COMMENT 'Active, Inactive, or Retired. See kri_lookup_values(kri_status).',
+    kri_status        STRING NOT NULL COMMENT 'Active, Inactive, or Retired. See kri_lookup_values(kri_status). Always set explicitly by the app (Active on insert).',
     date_approved     DATE COMMENT 'Date the KRI definition/thresholds were approved by Risk.',
     legacy_kri_no     INT COMMENT 'Original "KRI No." from the source Excel template, kept for migration traceability only.',
     created_by        STRING NOT NULL,
