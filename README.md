@@ -79,6 +79,13 @@ negative sign (e.g. `-5%`). When it is a range (or a comparison like `>=75%-90%`
 left number must be strictly lower than the right one; internal whitespace is stripped
 first, so `75% - 90%` validates the same as `75%-90%`.
 
+Monthly Intake's "Actual value" field (`validate_actual_value()`) uses the same
+per-unit number formats, but never allows comparison operators or a range: a
+submission is one measurement, not a band, so `5%` is valid for a Percent KRI but
+`>=75%` or `75%-90%` are rejected. A KRI with no `unit_of_measure` set yet accepts any
+text, same as Status / Narrative.
+first, so `75% - 90%` validates the same as `75%-90%`.
+
 ### Renaming a lookup value
 
 Department (and other lookup) names change over time. Use **Administration → Lookup

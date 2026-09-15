@@ -108,3 +108,25 @@ def validate_threshold(label: str, value: str, unit_of_measure: Optional[str] = 
         )
 
     return None
+
+
+def validate_actual_value(label: str, value: str, unit_of_measure: Optional[str] = None) -> Optional[str]:
+    """Validate a single reported actual value against its KRI's unit_of_measure.
+
+    Same per-unit number formats as validate_threshold() (Percent needs %, Ratio up
+    to 3dp and no %, Days/Count whole numbers, PHP Amount up to 2dp), but unlike a
+    threshold this is one measurement, not a band: comparison operators (<, >, <=,
+    >=) and "-" ranges are not accepted here. A leading "-" is still read as a
+    negative number. "Status / Narrative" KRIs, and KRIs with no unit_of_measure set
+    yet, accept any free text.
+    """
+    value = "".join(value.split())
+
+    if not unit_of_measure or unit_of_measure == NARRATIVE_UNIT:
+        return None
+
+    pattern = UNIT_NUMBER_PATTERNS.get(unit_of_measure, DEFAULT_NUMBER_PATTERN)
+    if not pattern.match(value):
+        hint = UNIT_FORMAT_HINTS.get(unit_of_measure, "a plain number, optionally with %")
+        return f"{label} '{value}' doesn't match the expected format for {unit_of_measure} ({hint})."
+    return None

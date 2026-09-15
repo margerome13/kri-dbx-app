@@ -17,6 +17,7 @@ from utils.db import (
     sql_literal,
 )
 from utils.forms import bump_and_rerun, render_pending_banner
+from utils.validation import UNIT_FORMAT_HINTS, validate_actual_value
 
 st.header("Submit / Edit Monthly KRI", divider=True)
 st.write(
@@ -87,8 +88,12 @@ with st.form("kri_submission_form"):
     banner = st.empty()
     render_pending_banner("kri_submission", banner)
 
+    kri_unit = kri_row["unit_of_measure"]
+    if kri_unit and kri_unit != "Status / Narrative":
+        st.caption(f"Expected format for **{kri_unit}**: {UNIT_FORMAT_HINTS.get(kri_unit, 'a plain number, optionally with %')}.")
+
     actual_value_text = st.text_input(
-        f"Actual value ({kri_row['unit_of_measure'] or 'as reported'})",
+        f"Actual value ({kri_unit or 'as reported'})",
         value="" if existing is None else str(existing["actual_value_text"] or ""),
     )
     rag_status = st.radio(
@@ -108,6 +113,10 @@ with st.form("kri_submission_form"):
         errors = []
         if not actual_value_text.strip():
             errors.append("Actual value is required.")
+        else:
+            value_error = validate_actual_value("Actual value", actual_value_text, kri_unit)
+            if value_error:
+                errors.append(value_error)
         if rag_status in ("Amber", "Red") and not remarks.strip():
             errors.append("Remarks are required when RAG status is Amber or Red.")
 
