@@ -1,7 +1,10 @@
 import pandas as pd
 import streamlit as st
 
+from utils.access import require_page_access
 from utils.db import TBL_CATALOG, TBL_SUBMISSIONS, fetch_lookup, run_query, sql_literal
+
+require_page_access("dashboard")
 
 st.header("KRI Overview", divider=True)
 st.write("RAG status across all submitted KRIs. Use the filters below to narrow the view.")

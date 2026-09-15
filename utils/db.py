@@ -121,15 +121,35 @@ def _resolve_http_path(cfg: Config) -> str:
 
 
 def current_user_email() -> str:
-    """Best-effort identity of the signed-in app user, falling back to the run-as identity."""
-    header_email = st.context.headers.get("X-Forwarded-Email") if hasattr(st, "context") else None
-    if header_email:
-        return header_email
+    """Best-effort identity of the signed-in app user, falling back to the run-as identity.
+
+    Tries every method the Databricks Apps proxy/SDK might expose, in order, since
+    the exact header name can vary by workspace/proxy configuration. Role-based
+    access (config/user_roles.py) depends on this returning the right email, not
+    just audit-log fields, so it's worth trying harder than a single header lookup.
+    """
+    try:
+        headers = st.context.headers if hasattr(st, "context") else None
+        if headers:
+            for header_name in ("X-Forwarded-Preferred-Username", "X-Forwarded-Email"):
+                value = headers.get(header_name)
+                if value and "@" in value:
+                    return value
+    except Exception:
+        pass
     try:
         w = WorkspaceClient()
-        return w.current_user.me().user_name
+        current_user = w.current_user.me()
+        if current_user.user_name and "@" in str(current_user.user_name):
+            return current_user.user_name
+        emails = getattr(current_user, "emails", None)
+        if emails:
+            email_value = emails[0].value
+            if email_value and "@" in email_value:
+                return email_value
     except Exception:
-        return "unknown"
+        pass
+    return "unknown"
 
 
 def run_query(query: str) -> pd.DataFrame:

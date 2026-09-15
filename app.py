@@ -1,6 +1,8 @@
 import streamlit as st
 
-from view_groups import groups
+from config.user_roles import get_user_role
+from utils.db import current_user_email
+from view_groups import get_groups_for_user
 
 st.set_page_config(
     page_title="KRI Intake — Risk & Compliance Office",
@@ -9,12 +11,28 @@ st.set_page_config(
 )
 st.title(":material/monitoring: KRI Intake — Risk & Compliance Office")
 
+user_email = current_user_email()
+role = get_user_role(user_email)
+
+badge_col, id_col = st.columns([1, 3])
+with badge_col:
+    if role == "ADMIN":
+        st.success(f"🔑 Role: {role}")
+    elif role == "MAKER":
+        st.info(f"📝 Role: {role}")
+    elif role == "CHECKER":
+        st.warning(f"✅ Role: {role}")
+    else:
+        st.error(f"🚫 Role: {role}")
+with id_col:
+    st.caption(f"👤 Logged in as **{user_email}**")
+
 pages = {
     group["title"]: [
         st.Page(view["page"], title=view["label"], icon=view["icon"])
         for view in group["views"]
     ]
-    for group in groups
+    for group in get_groups_for_user(user_email)
 }
 
 pg = st.navigation(pages)

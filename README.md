@@ -84,7 +84,6 @@ per-unit number formats, but never allows comparison operators or a range: a
 submission is one measurement, not a band, so `5%` is valid for a Percent KRI but
 `>=75%` or `75%-90%` are rejected. A KRI with no `unit_of_measure` set yet accepts any
 text, same as Status / Narrative.
-first, so `75% - 90%` validates the same as `75%-90%`.
 
 ### Renaming a lookup value
 
@@ -101,15 +100,20 @@ added that isn't one of `entity`/`department`/`risk_category`/`frequency`/
 ## App structure
 
 ```
-app.py                      Streamlit entry point / navigation
-view_groups.py               Page registry
+app.py                      Streamlit entry point / navigation, shows the role badge
+view_groups.py               Role-aware page registry (PAGE_REGISTRY + get_groups_for_user)
+config/
+  user_roles.py               Who's ADMIN/MAKER/CHECKER, and which pages each can see
 views/
-  kri_monthly_intake.py       Departments submit/edit their monthly KRI value
-  kri_dashboard.py            RAG overview + trend per KRI
-  kri_catalog_manager.py      Risk defines/edits KRIs, thresholds, status
-  kri_lookup_admin.py         Risk manages the standardized dropdown values
+  kri_monthly_intake.py       Everyone: submit/edit your monthly KRI value
+  kri_dashboard.py            Admin only: RAG overview + trend per KRI
+  kri_catalog_add.py          Admin only: define new KRIs, thresholds, frequency
+  kri_catalog_manage.py       Admin + Checker: review/update existing KRIs
+  kri_lookup_admin.py         Admin only: manage the standardized dropdown values
+  access_denied.py            Shown instead of any page to an unlisted user
 utils/
   db.py                        Connection handling + safe SQL literal/MERGE builders
+  access.py                    require_page_access() -- per-page role guard
   audit.py                     Writes to kri_audit_log
 sql/                          DDL + one-time lookup seed, run in order
 scripts/migrate_excel_to_dbx.py  One-time backfill from the existing Excel file
@@ -119,6 +123,32 @@ All writes go through `utils/db.py`'s `sql_literal()` / `build_insert()` /
 `build_update()` / `build_merge_upsert()` helpers, which escape every value (quotes
 doubled, per standard SQL literal escaping) instead of interpolating user input
 directly into SQL strings.
+
+## Roles
+
+| Role | Sees |
+|---|---|
+| ADMIN | Everything: Monthly Intake, KRI Overview (Dashboard), Add a KRI, Manage Existing KRIs, Lookup Values |
+| MAKER | Monthly Intake only |
+| CHECKER | Monthly Intake + Manage Existing KRIs (not Add a KRI, not Lookup Values) |
+| *(unlisted)* | An "Access Denied" page, nothing else |
+
+Membership lives in `config/user_roles.py` (`ADMINS`/`MAKERS`/`CHECKERS` email lists) —
+edit that file and redeploy to change who has what access; there's no in-app admin UI
+for this yet. An email in more than one list resolves to the single highest-privilege
+role (checked in the order ADMIN, then MAKER, then CHECKER), so e.g. an admin who's
+also listed as a checker just sees the full admin page set (a superset anyway).
+
+Enforcement is two layers: `view_groups.get_groups_for_user()` only lists pages a
+role is allowed to see, so the sidebar itself never shows a Maker "Manage Existing
+KRIs" or "Lookup Values"; every restricted page also calls
+`utils/access.require_page_access()` at the top as a second, direct check — defense
+in depth against someone bookmarking a page URL their role shouldn't reach.
+Monthly Intake has no guard since every role can see it.
+
+The current signed-in user and their resolved role are shown at the top of every
+page (`app.py`), styled the same way as the
+[Merchant Business Size and Gender Review App](https://github.com/margerome13/dbx-merchant-biz-size-gender-app).
 
 ## Setup
 
@@ -143,6 +173,12 @@ directly into SQL strings.
    - `USE CATALOG` on `dg_dev`, `USE SCHEMA` on `dg_dev.sandbox`
    - `SELECT, MODIFY` on all four tables above
    - `CAN USE` on the attached SQL warehouse
+   Role-based access (see **Roles** above) depends on `utils/db.py`'s
+   `current_user_email()` correctly reading the signed-in user's email from the
+   Databricks Apps proxy headers (`X-Forwarded-Preferred-Username` /
+   `X-Forwarded-Email`) or the SDK's `current_user.me()` -- if the role badge shown
+   at the top of the app doesn't match who's actually logged in, that's the first
+   place to check.
 4. **Local development** — `pip install -r requirements.txt`, set `DATABRICKS_HOST`
    and either a configured CLI profile or `DATABRICKS_TOKEN`, plus
    `DATABRICKS_HTTP_PATH=/sql/1.0/warehouses/<id>`, then `streamlit run app.py`.

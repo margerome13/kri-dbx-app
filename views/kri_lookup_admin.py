@@ -1,5 +1,6 @@
 import streamlit as st
 
+from utils.access import require_page_access
 from utils.audit import log_change
 from utils.db import (
     TBL_LOOKUP,
@@ -14,6 +15,8 @@ from utils.db import (
     sql_literal,
 )
 from utils.forms import bump_and_rerun, form_gen, render_pending_banner, show_message
+
+require_page_access("lookup_admin")
 
 st.header("Lookup Values", divider=True)
 st.write(
