@@ -35,8 +35,16 @@ def now_utc() -> datetime:
 
 def sql_literal(value: Any) -> str:
     """Render a Python value as a safe SQL literal (NULL / number / quoted string)."""
-    if value is None or (isinstance(value, float) and pd.isna(value)):
+    if value is None:
         return "NULL"
+    try:
+        # Catches NaN, and pandas-only null markers such as NaT (returned for
+        # NULL TIMESTAMP columns read back via fetchall_arrow().to_pandas()),
+        # which otherwise pass isinstance(value, datetime) but crash strftime().
+        if pd.isna(value):
+            return "NULL"
+    except (TypeError, ValueError):
+        pass  # pd.isna() rejects some array-likes; not a null scalar either way
     if isinstance(value, bool):
         return "TRUE" if value else "FALSE"
     if isinstance(value, (int, float)):
