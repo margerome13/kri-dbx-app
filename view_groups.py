@@ -38,6 +38,13 @@ PAGE_REGISTRY = [
         "page": "views/kri_lookup_admin.py",
         "icon": ":material/tune:",
     },
+    {
+        "key": "user_role_admin",
+        "group": "Administration",
+        "label": "User Role Manager",
+        "page": "views/user_role_admin.py",
+        "icon": ":material/manage_accounts:",
+    },
 ]
 
 ACCESS_DENIED_GROUPS = [

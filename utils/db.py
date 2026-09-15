@@ -23,6 +23,7 @@ TBL_LOOKUP = f"{CATALOG}.{SCHEMA}.kri_lookup_values"
 TBL_CATALOG = f"{CATALOG}.{SCHEMA}.kri_catalog"
 TBL_SUBMISSIONS = f"{CATALOG}.{SCHEMA}.kri_monthly_submissions"
 TBL_AUDIT = f"{CATALOG}.{SCHEMA}.kri_audit_log"
+TBL_USER_ROLES = f"{CATALOG}.{SCHEMA}.kri_user_roles"
 
 
 def new_id() -> str:

@@ -40,7 +40,8 @@ on top of your plan:
 | [`kri_catalog`](sql/002_create_kri_catalog.sql) | `kri_dept_repository` | One row per KRI definition per entity/department: title, description, thresholds, frequency, owner. Reference table. |
 | [`kri_monthly_submissions`](sql/003_create_kri_monthly_submissions.sql) | `kri_dept_logs` | One row per KRI per reporting month: actual value, RAG status, remarks, workflow status. Fact table. |
 | [`kri_lookup_values`](sql/001_create_kri_lookup_values.sql) | *(new)* | Standardized dropdown values (entity, department, risk category, frequency, unit of measure, statuses) so free-text drift can't recur. Primary key is `(lookup_type, id)`; `id` is auto-assigned per lookup_type and never editable, so `lookup_value` (the display text) can be renamed in place — see **Renaming a lookup value** below. |
-| [`kri_audit_log`](sql/004_create_kri_audit_log.sql) | *(new)* | Append-only who/what/when for every write to the two tables above. |
+| [`kri_audit_log`](sql/004_create_kri_audit_log.sql) | *(new)* | Append-only who/what/when for every write to every other table below. |
+| [`kri_user_roles`](sql/007_create_kri_user_roles.sql) | *(new)* | Who has which app role (ADMIN/MAKER/CHECKER) -- see **Roles** below. Managed entirely via Administration → User Role Manager. |
 
 `kri_catalog.kri_id` is an `IDENTITY` surrogate key — it doesn't reuse the source
 sheet's manually-assigned `KRI No.` (kept as `legacy_kri_no` for traceability only),
@@ -53,7 +54,8 @@ Run the scripts in `sql/` in numeric order once against your workspace (e.g. via
 warehouse / notebook with `MODIFY` on `dg_dev.sandbox`). `006` only applies if you
 already ran the original `001` (which used `sort_order` as a plain display-order column
 with `(lookup_type, lookup_value)` as the primary key) — a fresh `001` already creates
-the current shape and `006` is a no-op you can skip.
+the current shape and `006` is a no-op you can skip. `008` seeds `kri_user_roles` with
+the users originally hardcoded in `config/user_roles.py`; safe to re-run.
 
 ### Threshold format rules (unit-of-measure aware)
 
@@ -103,13 +105,14 @@ added that isn't one of `entity`/`department`/`risk_category`/`frequency`/
 app.py                      Streamlit entry point / navigation, shows the role badge
 view_groups.py               Role-aware page registry (PAGE_REGISTRY + get_groups_for_user)
 config/
-  user_roles.py               Who's ADMIN/MAKER/CHECKER, and which pages each can see
+  user_roles.py               Role resolution logic + BOOTSTRAP_ADMINS + which pages each role sees
 views/
   kri_monthly_intake.py       Everyone: submit/edit your monthly KRI value
   kri_dashboard.py            Admin only: RAG overview + trend per KRI
   kri_catalog_add.py          Admin only: define new KRIs, thresholds, frequency
   kri_catalog_manage.py       Admin + Checker: review/update existing KRIs
   kri_lookup_admin.py         Admin only: manage the standardized dropdown values
+  user_role_admin.py          Admin only: add/change/remove who has which role
   access_denied.py            Shown instead of any page to an unlisted user
 utils/
   db.py                        Connection handling + safe SQL literal/MERGE builders
@@ -128,16 +131,24 @@ directly into SQL strings.
 
 | Role | Sees |
 |---|---|
-| ADMIN | Everything: Monthly Intake, KRI Overview (Dashboard), Add a KRI, Manage Existing KRIs, Lookup Values |
+| ADMIN | Everything: Monthly Intake, KRI Overview (Dashboard), Add a KRI, Manage Existing KRIs, Lookup Values, User Role Manager |
 | MAKER | Monthly Intake only |
-| CHECKER | Monthly Intake + Manage Existing KRIs (not Add a KRI, not Lookup Values) |
+| CHECKER | Monthly Intake + Manage Existing KRIs (not Add a KRI, not Lookup Values, not User Role Manager) |
 | *(unlisted)* | An "Access Denied" page, nothing else |
 
-Membership lives in `config/user_roles.py` (`ADMINS`/`MAKERS`/`CHECKERS` email lists) —
-edit that file and redeploy to change who has what access; there's no in-app admin UI
-for this yet. An email in more than one list resolves to the single highest-privilege
-role (checked in the order ADMIN, then MAKER, then CHECKER), so e.g. an admin who's
-also listed as a checker just sees the full admin page set (a superset anyway).
+Role membership lives in `dg_dev.sandbox.kri_user_roles` — managed entirely in-app via
+**Administration → User Role Manager** (Admin only): add a user with a role, change
+someone's role, or remove one, no code change or redeploy needed. Every write there
+is logged to `kri_audit_log` just like every other table.
+
+**`config/user_roles.py`'s `BOOTSTRAP_ADMINS`** is the one thing that still lives in
+code: a short hardcoded list that is always ADMIN regardless of what's in the
+`kri_user_roles` table, so a misconfigured, emptied, or query-failing roles table can
+never lock every admin out — there's always at least one way back in. Keep this list
+as short as possible (today: just `mar.abana@paymaya.com`). The User Role Manager page
+also blocks removing or demoting the *last* ADMIN row in the table (a softer,
+day-to-day safeguard on top of `BOOTSTRAP_ADMINS`, so admin work doesn't always have
+to fall back to the bootstrap account).
 
 Enforcement is two layers: `view_groups.get_groups_for_user()` only lists pages a
 role is allowed to see, so the sidebar itself never shows a Maker "Manage Existing
@@ -149,6 +160,10 @@ Monthly Intake has no guard since every role can see it.
 The current signed-in user and their resolved role are shown at the top of every
 page (`app.py`), styled the same way as the
 [Merchant Business Size and Gender Review App](https://github.com/margerome13/dbx-merchant-biz-size-gender-app).
+
+This app doesn't cache any data query (every page re-reads fresh on every rerun), so
+role lookups aren't an exception either — a role change in User Role Manager applies
+on the affected user's very next click, with no cache to clear or TTL to wait out.
 
 ## Setup
 
@@ -171,7 +186,7 @@ page (`app.py`), styled the same way as the
    `sql-warehouse` (see `app.yaml`) so `DATABRICKS_WAREHOUSE_ID` is populated
    automatically. Grant the app's service principal:
    - `USE CATALOG` on `dg_dev`, `USE SCHEMA` on `dg_dev.sandbox`
-   - `SELECT, MODIFY` on all four tables above
+   - `SELECT, MODIFY` on all five tables above
    - `CAN USE` on the attached SQL warehouse
    Role-based access (see **Roles** above) depends on `utils/db.py`'s
    `current_user_email()` correctly reading the signed-in user's email from the
@@ -185,7 +200,7 @@ page (`app.py`), styled the same way as the
 
 ## Status
 
-All four tables exist live in `dg_dev.sandbox` and the app has been deployed and
+All five tables exist live in `dg_dev.sandbox` and the app has been deployed and
 smoke-tested end to end (KRI Catalog Manager add, Monthly Intake first submit and edit,
 Lookup Values add/rename/deactivate). Two bugs turned up during that testing and are
 fixed on `main`:
