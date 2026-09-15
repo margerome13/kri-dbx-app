@@ -150,6 +150,47 @@ def fetch_lookup(lookup_type: str, active_only: bool = True) -> list[str]:
     if active_only:
         where += " AND is_active = TRUE"
     df = run_query(
-        f"SELECT lookup_value FROM {TBL_LOOKUP} WHERE {where} ORDER BY sort_order, lookup_value"
+        f"SELECT lookup_value FROM {TBL_LOOKUP} WHERE {where} ORDER BY id, lookup_value"
     )
     return df["lookup_value"].tolist() if not df.empty else []
+
+
+def next_lookup_id(lookup_type: str) -> int:
+    """Next id in sequence for this lookup_type (ids restart at 1 per type, not global)."""
+    df = run_query(
+        f"SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM {TBL_LOOKUP} "
+        f"WHERE lookup_type = {sql_literal(lookup_type)}"
+    )
+    return int(df.iloc[0]["next_id"])
+
+
+# Every other table that stores a lookup's display text directly (rather than a
+# foreign key to kri_lookup_values), keyed by lookup_type. Used to cascade a rename
+# of the display text so existing rows don't go stale referencing the old name.
+LOOKUP_CASCADE_TARGETS: dict[str, list[tuple[str, str]]] = {
+    "entity": [(TBL_CATALOG, "entity")],
+    "department": [(TBL_CATALOG, "department")],
+    "risk_category": [(TBL_CATALOG, "risk_category")],
+    "frequency": [(TBL_CATALOG, "frequency")],
+    "unit_of_measure": [(TBL_CATALOG, "unit_of_measure")],
+    "kri_status": [(TBL_CATALOG, "kri_status")],
+    "workflow_status": [(TBL_SUBMISSIONS, "workflow_status")],
+    "rag_status": [(TBL_SUBMISSIONS, "rag_status")],
+}
+
+
+def cascade_rename_lookup_value(lookup_type: str, old_value: str, new_value: str) -> dict:
+    """Propagate a lookup value rename into every table that stores the raw text.
+
+    Returns {table_name: rows_updated} for tables actually touched.
+    """
+    updated = {}
+    for table, column in LOOKUP_CASCADE_TARGETS.get(lookup_type, []):
+        count_df = run_query(
+            f"SELECT count(*) AS n FROM {table} WHERE {column} = {sql_literal(old_value)}"
+        )
+        count = int(count_df.iloc[0]["n"]) if not count_df.empty else 0
+        if count:
+            run_statement(build_update(table, {column: new_value}, {column: old_value}))
+            updated[table] = count
+    return updated

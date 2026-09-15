@@ -39,7 +39,7 @@ on top of your plan:
 |---|---|---|
 | [`kri_catalog`](sql/002_create_kri_catalog.sql) | `kri_dept_repository` | One row per KRI definition per entity/department: title, description, thresholds, frequency, owner. Reference table. |
 | [`kri_monthly_submissions`](sql/003_create_kri_monthly_submissions.sql) | `kri_dept_logs` | One row per KRI per reporting month: actual value, RAG status, remarks, workflow status. Fact table. |
-| [`kri_lookup_values`](sql/001_create_kri_lookup_values.sql) | *(new)* | Standardized dropdown values (entity, department, risk category, frequency, unit of measure, statuses) so free-text drift can't recur. |
+| [`kri_lookup_values`](sql/001_create_kri_lookup_values.sql) | *(new)* | Standardized dropdown values (entity, department, risk category, frequency, unit of measure, statuses) so free-text drift can't recur. Primary key is `(lookup_type, id)`; `id` is auto-assigned per lookup_type and never editable, so `lookup_value` (the display text) can be renamed in place — see **Renaming a lookup value** below. |
 | [`kri_audit_log`](sql/004_create_kri_audit_log.sql) | *(new)* | Append-only who/what/when for every write to the two tables above. |
 
 `kri_catalog.kri_id` is an `IDENTITY` surrogate key — it doesn't reuse the source
@@ -50,7 +50,22 @@ or reordered. `kri_monthly_submissions` stores `reporting_period` as a single `D
 table stop growing sideways and start being query/dashboard-friendly.
 
 Run the scripts in `sql/` in numeric order once against your workspace (e.g. via a SQL
-warehouse / notebook with `MODIFY` on `dg_dev.sandbox`).
+warehouse / notebook with `MODIFY` on `dg_dev.sandbox`). `006` only applies if you
+already ran the original `001` (which used `sort_order` as a plain display-order column
+with `(lookup_type, lookup_value)` as the primary key) — a fresh `001` already creates
+the current shape and `006` is a no-op you can skip.
+
+### Renaming a lookup value
+
+Department (and other lookup) names change over time. Use **Administration → Lookup
+Values → Edit a value** rather than deactivating and re-adding — it updates
+`lookup_value` in place (keeping the same `id`) and cascades the new text into every
+`kri_catalog` / `kri_monthly_submissions` row that already used the old text, via
+`utils/db.py`'s `LOOKUP_CASCADE_TARGETS` mapping and `cascade_rename_lookup_value()`.
+Both the rename and the cascade are logged to `kri_audit_log`. If a lookup type is ever
+added that isn't one of `entity`/`department`/`risk_category`/`frequency`/
+`unit_of_measure`/`kri_status`/`workflow_status`/`rag_status`, add it to
+`LOOKUP_CASCADE_TARGETS` too or renames of it won't propagate anywhere.
 
 ## App structure
 
@@ -101,15 +116,22 @@ directly into SQL strings.
    and either a configured CLI profile or `DATABRICKS_TOKEN`, plus
    `DATABRICKS_HTTP_PATH=/sql/1.0/warehouses/<id>`, then `streamlit run app.py`.
 
-## What I couldn't verify from here
+## Status
 
-This machine has no `~/.databrickscfg` and no `DATABRICKS_*` environment variables
-configured, so none of the SQL/Streamlit code has been run against a live workspace —
-only Python syntax/AST-checked, and the migration script's Excel-parsing logic
-dry-run-tested against the real template (119 KRI definitions, 490 monthly values
-extracted correctly). Please run the DDL and a smoke test of the app in your workspace
-before relying on it; the SQL warehouse permission and `dg_dev.sandbox` grants above are
-the most likely first blockers.
+All four tables exist live in `dg_dev.sandbox` and the app has been deployed and
+smoke-tested end to end (KRI Catalog Manager add, Monthly Intake first submit and edit,
+Lookup Values add/rename/deactivate). Two bugs turned up during that testing and are
+fixed on `main`:
+- `DEFAULT` clauses in the original DDL failed against this workspace's Delta feature
+  set (`WRONG_COLUMN_DEFAULTS_FOR_DELTA_FEATURE_NOT_ENABLED`) — dropped, since the app
+  always sets those columns explicitly on insert anyway.
+- Editing an already-submitted month crashed (`NaTType does not support strftime`):
+  `sql_literal()` didn't recognize `pandas.NaT` (what a `NULL` timestamp column becomes
+  after `fetchall_arrow().to_pandas()`) as a null value. Fixed to check `pd.isna()`.
+
+Still worth independently verifying before wider rollout: RAG-threshold parsing isn't
+attempted anywhere (submitters pick RAG manually, by design), and the historical Excel
+backfill (see below) hasn't been loaded into the live tables yet.
 
 ## Other tables you may want later (not built here)
 

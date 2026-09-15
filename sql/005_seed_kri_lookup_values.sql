@@ -87,8 +87,8 @@ USING (
         ('department', 'InfoSec', 20),
         ('department', 'InfoSec - DPO', 21),
         ('department', 'Tech Ops', 22)
-    AS s(lookup_type, lookup_value, sort_order)
+    AS s(lookup_type, lookup_value, id)
 ) AS source
 ON target.lookup_type = source.lookup_type AND target.lookup_value = source.lookup_value
-WHEN NOT MATCHED THEN INSERT (lookup_type, lookup_value, sort_order, is_active, created_by, created_at)
-VALUES (source.lookup_type, source.lookup_value, source.sort_order, TRUE, current_user(), current_timestamp());
+WHEN NOT MATCHED THEN INSERT (lookup_type, lookup_value, id, is_active, created_by, created_at)
+VALUES (source.lookup_type, source.lookup_value, source.id, TRUE, current_user(), current_timestamp());
