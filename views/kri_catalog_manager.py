@@ -14,7 +14,7 @@ from utils.db import (
     run_statement,
     sql_literal,
 )
-from utils.forms import bump_and_rerun, form_gen, render_pending_banner
+from utils.forms import bump_and_rerun, form_gen, render_pending_banner, show_message
 from utils.validation import (
     UNIT_FORMAT_HINTS,
     missing_required_fields,
@@ -41,7 +41,6 @@ with tab_add:
     gen = form_gen("add_kri")
     with st.form(f"add_kri_form_{gen}"):
         banner = st.empty()
-        render_pending_banner("add_kri", banner)
 
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -90,6 +89,9 @@ with tab_add:
         )
 
         submitted = st.form_submit_button("Add KRI", type="primary")
+        bottom_banner = st.empty()
+        render_pending_banner("add_kri", banner, bottom_banner)
+
         if submitted:
             errors = []
 
@@ -128,7 +130,7 @@ with tab_add:
                         errors.append(threshold_error)
 
             if errors:
-                banner.error("\n".join(f"- {e}" for e in errors))
+                show_message("error", "\n".join(f"- {e}" for e in errors), banner, bottom_banner)
             else:
                 user = current_user_email()
                 row = {
@@ -190,7 +192,6 @@ with tab_manage:
 
         with st.form("edit_kri_form"):
             edit_banner = st.empty()
-            render_pending_banner("edit_kri", edit_banner)
 
             edit_unit = row["unit_of_measure"]
             if edit_unit and edit_unit != "Status / Narrative":
@@ -210,6 +211,8 @@ with tab_manage:
                 "Status", statuses, index=statuses.index(row["kri_status"]) if row["kri_status"] in statuses else 0
             )
             save = st.form_submit_button("Save changes", type="primary")
+            edit_bottom_banner = st.empty()
+            render_pending_banner("edit_kri", edit_banner, edit_bottom_banner)
 
             if save:
                 errors = []
@@ -224,7 +227,9 @@ with tab_manage:
                             errors.append(threshold_error)
 
                 if errors:
-                    edit_banner.error("\n".join(f"- {e}" for e in errors))
+                    show_message(
+                        "error", "\n".join(f"- {e}" for e in errors), edit_banner, edit_bottom_banner
+                    )
                 else:
                     user = current_user_email()
                     set_values = {

@@ -13,7 +13,7 @@ from utils.db import (
     run_statement,
     sql_literal,
 )
-from utils.forms import bump_and_rerun, form_gen, render_pending_banner
+from utils.forms import bump_and_rerun, form_gen, render_pending_banner, show_message
 
 st.header("Lookup Values", divider=True)
 st.write(
@@ -40,15 +40,19 @@ with tab_add:
     gen = form_gen("add_lookup")
     with st.form(f"add_lookup_value_{gen}"):
         banner = st.empty()
-        render_pending_banner("add_lookup", banner)
 
         new_value = st.text_input("Value", key=f"add_lookup_value_input_{gen}")
         add_submitted = st.form_submit_button("Add")
+        bottom_banner = st.empty()
+        render_pending_banner("add_lookup", banner, bottom_banner)
+
         if add_submitted:
             if not new_value.strip():
-                banner.error("Value is required.")
+                show_message("error", "Value is required.", banner, bottom_banner)
             elif new_value.strip() in values_df["lookup_value"].tolist():
-                banner.error(f"'{new_value.strip()}' already exists for '{lookup_type}'.")
+                show_message(
+                    "error", f"'{new_value.strip()}' already exists for '{lookup_type}'.", banner, bottom_banner
+                )
             else:
                 user = current_user_email()
                 row = {
@@ -89,20 +93,23 @@ with tab_edit:
 
         with st.form("edit_lookup_value"):
             edit_banner = st.empty()
-            render_pending_banner("edit_lookup", edit_banner)
 
             st.text_input("ID (auto-assigned, not editable)", value=str(editable_id), disabled=True)
             new_text = st.text_input("Value", value=current_value)
             save = st.form_submit_button("Save rename", type="primary")
+            edit_bottom_banner = st.empty()
+            render_pending_banner("edit_lookup", edit_banner, edit_bottom_banner)
 
             if save:
                 new_text = new_text.strip()
                 if not new_text:
-                    edit_banner.error("Value is required.")
+                    show_message("error", "Value is required.", edit_banner, edit_bottom_banner)
                 elif new_text == current_value:
-                    edit_banner.info("No change.")
+                    show_message("info", "No change.", edit_banner, edit_bottom_banner)
                 elif new_text in values_df["lookup_value"].tolist():
-                    edit_banner.error(f"'{new_text}' already exists for '{lookup_type}'.")
+                    show_message(
+                        "error", f"'{new_text}' already exists for '{lookup_type}'.", edit_banner, edit_bottom_banner
+                    )
                 else:
                     user = current_user_email()
                     run_statement(
@@ -135,7 +142,6 @@ with tab_deactivate:
     else:
         with st.form("deactivate_lookup_value"):
             deactivate_banner = st.empty()
-            render_pending_banner("deactivate_lookup", deactivate_banner)
 
             id_to_deactivate = st.selectbox(
                 "Value",
@@ -144,6 +150,9 @@ with tab_deactivate:
                 key="deactivate_lookup_select",
             )
             deactivate_submitted = st.form_submit_button("Deactivate")
+            deactivate_bottom_banner = st.empty()
+            render_pending_banner("deactivate_lookup", deactivate_banner, deactivate_bottom_banner)
+
             if deactivate_submitted:
                 value_text = active_df.loc[active_df["id"] == id_to_deactivate, "lookup_value"].iloc[0]
                 user = current_user_email()

@@ -16,7 +16,7 @@ from utils.db import (
     run_statement,
     sql_literal,
 )
-from utils.forms import bump_and_rerun, render_pending_banner
+from utils.forms import bump_and_rerun, render_pending_banner, show_message
 from utils.validation import UNIT_FORMAT_HINTS, validate_actual_value
 
 st.header("Submit / Edit Monthly KRI", divider=True)
@@ -86,7 +86,6 @@ if existing is not None:
 
 with st.form("kri_submission_form"):
     banner = st.empty()
-    render_pending_banner("kri_submission", banner)
 
     kri_unit = kri_row["unit_of_measure"]
     if kri_unit and kri_unit != "Status / Narrative":
@@ -108,6 +107,8 @@ with st.form("kri_submission_form"):
         height=150,
     )
     submitted = st.form_submit_button("Save submission", type="primary")
+    bottom_banner = st.empty()
+    render_pending_banner("kri_submission", banner, bottom_banner)
 
     if submitted:
         errors = []
@@ -121,7 +122,7 @@ with st.form("kri_submission_form"):
             errors.append("Remarks are required when RAG status is Amber or Red.")
 
         if errors:
-            banner.error("\n".join(f"- {e}" for e in errors))
+            show_message("error", "\n".join(f"- {e}" for e in errors), banner, bottom_banner)
         else:
             try:
                 numeric_value = pd.to_numeric(
