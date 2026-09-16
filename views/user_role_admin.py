@@ -13,6 +13,7 @@ from utils.db import (
     run_statement,
 )
 from utils.forms import bump_and_rerun, form_gen, render_pending_banner, show_message
+from utils.validation import validate_maya_email
 
 require_page_access("user_role_admin")
 
@@ -61,7 +62,10 @@ with tab_upsert:
     with st.form(f"user_role_upsert_form_{gen}"):
         banner = st.empty()
 
-        email_input = st.text_input("User email", key=f"user_role_email_{gen}")
+        email_input = st.text_input(
+            "User email", key=f"user_role_email_{gen}",
+            placeholder="firstname.lastname@paymaya.com",
+        )
         role_input = st.selectbox("Role", VALID_ROLES, key=f"user_role_role_{gen}")
 
         submitted = st.form_submit_button("Save", type="primary")
@@ -73,9 +77,11 @@ with tab_upsert:
             email_clean = email_input.strip()
             if not email_clean:
                 errors.append("User email is required.")
-            elif "@" not in email_clean:
-                errors.append("That doesn't look like a valid email address.")
-            elif blocks_last_admin(email_clean, role_input):
+            else:
+                email_error = validate_maya_email(email_clean)
+                if email_error:
+                    errors.append(email_error)
+            if email_clean and not errors and blocks_last_admin(email_clean, role_input):
                 errors.append(
                     f"'{email_clean}' is the only ADMIN in this table. Add another "
                     f"ADMIN before changing this one's role."

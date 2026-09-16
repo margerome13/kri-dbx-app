@@ -11,6 +11,9 @@ from typing import Optional
 
 KRI_TITLE_RE = re.compile(r"^[A-Za-z0-9 ]+$")
 
+# Every dbx Maya account is firstname.lastname@paymaya.com, e.g. "mar.abana@paymaya.com".
+MAYA_EMAIL_RE = re.compile(r"^[A-Za-z]+\.[A-Za-z]+@paymaya\.com$", re.IGNORECASE)
+
 # Base character set for any numeric threshold (narrative KRIs are exempt entirely).
 THRESHOLD_CHARSET_RE = re.compile(r"^[0-9><%=.\-]+$")
 
@@ -57,6 +60,20 @@ def missing_required_fields(fields: dict) -> list[str]:
 def validate_kri_title(title: str) -> Optional[str]:
     if not KRI_TITLE_RE.match(title.strip()):
         return "KRI title may only contain letters, numbers, and spaces (no special characters)."
+    return None
+
+
+def validate_maya_email(email: str) -> Optional[str]:
+    """Every dbx Maya account follows firstname.lastname@paymaya.com -- e.g.
+    "mar.abana@paymaya.com". Reject anything else (wrong domain, missing the dot,
+    a middle name/initial, numbers) so a typo doesn't silently grant/deny access to
+    the wrong person.
+    """
+    if not MAYA_EMAIL_RE.match(email.strip()):
+        return (
+            "User email must be a Maya account in the form "
+            "'firstname.lastname@paymaya.com' (e.g. 'mar.abana@paymaya.com')."
+        )
     return None
 
 
