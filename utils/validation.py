@@ -186,16 +186,19 @@ def validate_rag_threshold_sequence(
     )
 
 
-# The smallest gap between two adjacent bands that ISN'T a real gap, because no valid
-# value can land strictly between them at this unit's own number format -- e.g. Days
-# only allows whole numbers, so a Green ending at 2 next to an Amber starting at 3
-# leaves nothing uncovered. Units not listed (Percent, and ratio-like formats with
-# unrestricted decimals) have no such floor: any positive gap is real.
+# The smallest gap between two adjacent bands that ISN'T a real gap. For Days/Count,
+# that's because no valid value can land strictly between two whole numbers (a Green
+# ending at 2 next to an Amber starting at 3 leaves nothing uncovered). Percent's
+# format technically allows unlimited decimals, so no tolerance is ever fully
+# "correct" -- but every threshold actually entered so far is whole (or near-whole)
+# percentages, so a tolerance of 1 point avoids flagging the ordinary, deliberate
+# case (Green "0%", Amber "1%-3%", Red "4%") while still catching a real jump.
 GAP_TOLERANCE = {
     "Days": 1,
     "Count": 1,
     "Ratio": 0.001,
     "PHP Amount": 0.01,
+    "Percent": 1,
 }
 
 
