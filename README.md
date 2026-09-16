@@ -87,6 +87,24 @@ submission is one measurement, not a band, so `5%` is valid for a Percent KRI bu
 `>=75%` or `75%-90%` are rejected. A KRI with no `unit_of_measure` set yet accepts any
 text, same as Status / Narrative.
 
+Beyond each threshold's own format, two cross-field checks run on top (both skipped
+for Status / Narrative KRIs, same as above):
+
+- **Sequential, non-overlapping thresholds** (`validate_rag_threshold_sequence()`,
+  enforced in Add a KRI and Manage Existing KRIs) — Green, Amber, and Red must form
+  one strictly monotonic band with no gaps doubling as overlaps: either increasing
+  (`Green < Amber < Red`, e.g. Green `1-3`, Amber `4-6`, Red `7-10`) or decreasing
+  (`Red < Amber < Green`). Only checked once all three thresholds are individually
+  valid and non-blank (in Manage Existing KRIs, clearing any one of them skips this
+  check rather than blocking the save).
+- **Actual value matches its RAG band** (`validate_rag_status_matches_thresholds()`,
+  enforced in Monthly Intake) — the RAG status radio must match whichever
+  Green/Amber/Red band the reported Actual value numerically falls into, e.g. a Days
+  KRI with Red `7-10` and an Actual value of `8` must be submitted as Red, not Green
+  or Amber. Silently skipped (the submitter's own RAG choice is trusted) when the
+  value falls into no band at all (a gap in the catalog's thresholds) or into more
+  than one (only possible if the catalog's own thresholds overlap).
+
 ### Renaming a lookup value
 
 Department (and other lookup) names change over time. Use **Administration → Lookup

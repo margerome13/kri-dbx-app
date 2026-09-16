@@ -13,7 +13,7 @@ from utils.db import (
     sql_literal,
 )
 from utils.forms import bump_and_rerun, render_pending_banner, show_message
-from utils.validation import UNIT_FORMAT_HINTS, validate_threshold
+from utils.validation import UNIT_FORMAT_HINTS, validate_rag_threshold_sequence, validate_threshold
 
 require_page_access("catalog_manage")
 
@@ -78,6 +78,10 @@ else:
                     threshold_error = validate_threshold(label, value, edit_unit)
                     if threshold_error:
                         errors.append(threshold_error)
+
+            sequence_error = validate_rag_threshold_sequence(new_green, new_amber, new_red, edit_unit)
+            if sequence_error:
+                errors.append(sequence_error)
 
             if errors:
                 show_message(

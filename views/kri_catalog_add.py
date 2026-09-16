@@ -19,6 +19,7 @@ from utils.validation import (
     UNIT_FORMAT_HINTS,
     missing_required_fields,
     validate_kri_title,
+    validate_rag_threshold_sequence,
     validate_threshold,
 )
 
@@ -126,6 +127,12 @@ with st.form(f"add_kri_form_{gen}"):
                 threshold_error = validate_threshold(label, value, unit_of_measure)
                 if threshold_error:
                     errors.append(threshold_error)
+
+        sequence_error = validate_rag_threshold_sequence(
+            threshold_green, threshold_amber, threshold_red, unit_of_measure
+        )
+        if sequence_error:
+            errors.append(sequence_error)
 
         if errors:
             show_message("error", "\n".join(f"- {e}" for e in errors), banner, bottom_banner)

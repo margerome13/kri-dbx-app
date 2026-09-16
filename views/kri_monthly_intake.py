@@ -1,6 +1,5 @@
 from datetime import date
 
-import pandas as pd
 import streamlit as st
 
 from utils.audit import log_change
@@ -17,7 +16,12 @@ from utils.db import (
     sql_literal,
 )
 from utils.forms import bump_and_rerun, render_pending_banner, show_message
-from utils.validation import UNIT_FORMAT_HINTS, validate_actual_value
+from utils.validation import (
+    UNIT_FORMAT_HINTS,
+    parse_reported_number,
+    validate_actual_value,
+    validate_rag_status_matches_thresholds,
+)
 
 st.header("Submit / Edit Monthly KRI", divider=True)
 st.write(
@@ -112,25 +116,32 @@ with st.form("kri_submission_form"):
 
     if submitted:
         errors = []
+        actual_numeric = None
         if not actual_value_text.strip():
             errors.append("Actual value is required.")
         else:
             value_error = validate_actual_value("Actual value", actual_value_text, kri_unit)
             if value_error:
                 errors.append(value_error)
+            else:
+                actual_numeric = parse_reported_number(actual_value_text)
+                rag_error = validate_rag_status_matches_thresholds(
+                    actual_numeric,
+                    rag_status,
+                    kri_row["threshold_green"],
+                    kri_row["threshold_amber"],
+                    kri_row["threshold_red"],
+                    kri_unit,
+                )
+                if rag_error:
+                    errors.append(rag_error)
         if rag_status in ("Amber", "Red") and not remarks.strip():
             errors.append("Remarks are required when RAG status is Amber or Red.")
 
         if errors:
             show_message("error", "\n".join(f"- {e}" for e in errors), banner, bottom_banner)
         else:
-            try:
-                numeric_value = pd.to_numeric(
-                    actual_value_text.replace("%", "").replace(",", ""), errors="coerce"
-                )
-                numeric_value = None if pd.isna(numeric_value) else float(numeric_value)
-            except Exception:
-                numeric_value = None
+            numeric_value = actual_numeric
 
             user = current_user_email()
             row = {
