@@ -1,4 +1,4 @@
-"""User role configuration for the KRI Intake app.
+"""User role configuration for the Maya KRI app.
 
 Roles are ADMIN, MAKER, or CHECKER, and normally live in the
 dg_dev.sandbox.kri_user_roles table -- managed in-app via Administration ->

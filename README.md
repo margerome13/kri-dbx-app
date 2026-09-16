@@ -1,4 +1,4 @@
-# KRI Intake — Risk & Compliance Office
+# Maya KRI — Risk & Compliance Office
 
 A Databricks App that replaces the manual Excel → CSV → upload workflow Risk currently
 uses to collect Key Risk Indicators (KRIs) from Maya's departments. Departments submit

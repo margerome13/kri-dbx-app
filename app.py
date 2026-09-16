@@ -5,11 +5,12 @@ from utils.db import current_user_email
 from view_groups import get_groups_for_user
 
 st.set_page_config(
-    page_title="KRI Intake — Risk & Compliance Office",
+    page_title="Maya KRI — Risk & Compliance Office",
     page_icon=":material/monitoring:",
     layout="wide",
 )
-st.title(":material/monitoring: KRI Intake — Risk & Compliance Office")
+st.logo("assets/maya_logo.png")
+st.title(":material/monitoring: Maya KRI — Risk & Compliance Office")
 
 user_email = current_user_email()
 role = get_user_role(user_email)
