@@ -87,23 +87,41 @@ submission is one measurement, not a band, so `5%` is valid for a Percent KRI bu
 `>=75%` or `75%-90%` are rejected. A KRI with no `unit_of_measure` set yet accepts any
 text, same as Status / Narrative.
 
-Beyond each threshold's own format, two cross-field checks run on top (both skipped
-for Status / Narrative KRIs, same as above):
+Beyond each threshold's own format, two more checks run on top of the catalog's
+Green/Amber/Red thresholds (both skipped for Status / Narrative KRIs, same as above):
 
 - **Sequential, non-overlapping thresholds** (`validate_rag_threshold_sequence()`,
-  enforced in Add a KRI and Manage Existing KRIs) — Green, Amber, and Red must form
-  one strictly monotonic band with no gaps doubling as overlaps: either increasing
+  enforced in Add a KRI and Manage Existing KRIs, blocks saving) — Green, Amber, and
+  Red must form one strictly monotonic band with no overlaps: either increasing
   (`Green < Amber < Red`, e.g. Green `1-3`, Amber `4-6`, Red `7-10`) or decreasing
   (`Red < Amber < Green`). Only checked once all three thresholds are individually
   valid and non-blank (in Manage Existing KRIs, clearing any one of them skips this
   check rather than blocking the save).
-- **Actual value matches its RAG band** (`validate_rag_status_matches_thresholds()`,
-  enforced in Monthly Intake) — the RAG status radio must match whichever
-  Green/Amber/Red band the reported Actual value numerically falls into, e.g. a Days
-  KRI with Red `7-10` and an Actual value of `8` must be submitted as Red, not Green
-  or Amber. Silently skipped (the submitter's own RAG choice is trusted) when the
-  value falls into no band at all (a gap in the catalog's thresholds) or into more
-  than one (only possible if the catalog's own thresholds overlap).
+- **Threshold gap warning** (`find_rag_threshold_gap()`, same two pages, non-blocking)
+  — flags when two adjacent bands leave a numeric gap wide enough to contain a value
+  that would match neither, e.g. Amber `3-4` next to Red `46` for a Count KRI leaves
+  `5`-`45` uncovered. Shown as a warning alongside the success message, not an error —
+  a gap might be deliberate (that range's policy genuinely isn't decided yet), so it's
+  surfaced for a human to double check rather than enforced. A unit's own smallest
+  possible step doesn't count as a gap (e.g. Days/Count `2` next to `3`), see
+  `GAP_TOLERANCE`.
+
+### RAG status is computed, not chosen
+
+Monthly Intake doesn't let the submitter pick a RAG status — `resolve_rag_status()`
+derives it from the Actual value against the KRI's own Green/Amber/Red thresholds and
+shows it read-only, so an Actual value and RAG status can never disagree. A value
+inside one band's own typed numbers is a direct match; a value that falls in a gap
+between bands (like `44` in the `1-3` / `4-6` / `46` gap-warning example above)
+resolves to whichever of Green/Red sits on that side of Amber — on the assumption
+that a KRI only gets worse (or only gets better) the further a value goes past the
+defined range in one direction, so `44` there reads Red even though it doesn't hit
+Red's own typed `46`.
+
+The manual RAG radio only reappears as a fallback when nothing numeric can be
+compared: a Status / Narrative KRI, no `unit_of_measure` set, or a catalog with one of
+Green/Amber/Red left blank or unparseable. Fixing the underlying catalog data (see the
+gap warning above) is preferable to relying on this fallback.
 
 ### Renaming a lookup value
 

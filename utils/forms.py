@@ -37,18 +37,23 @@ def form_gen(namespace: str) -> int:
     return st.session_state.get(f"_{namespace}_gen", 0)
 
 
-def bump_and_rerun(namespace: str, message: str, bump: bool = True) -> None:
+def bump_and_rerun(namespace: str, message: str, bump: bool = True, warning: str | None = None) -> None:
     """Call right after a successful write.
 
     Reruns the page so anything queried earlier in the script (dropdown options,
     tables) reflects the change, and shows `message` once in this form/section's
     banners via render_pending_banner(). Set bump=False for a form that should keep
     showing its current values after saving (e.g. editing an existing record)
-    rather than blanking itself.
+    rather than blanking itself. Pass `warning` for a non-blocking, informational
+    heads-up to show alongside the success message (e.g. "saved, but here's
+    something about this data worth a second look") -- unlike an error, it never
+    prevented the save.
     """
     if bump:
         st.session_state[f"_{namespace}_gen"] = form_gen(namespace) + 1
     st.session_state[f"_{namespace}_pending_msg"] = message
+    if warning:
+        st.session_state[f"_{namespace}_pending_warning"] = warning
     st.rerun()
 
 
@@ -59,6 +64,9 @@ def render_pending_banner(namespace: str, *placeholders) -> None:
     message = st.session_state.pop(f"_{namespace}_pending_msg", None)
     if message:
         show_message("success", message, *placeholders)
+    warning = st.session_state.pop(f"_{namespace}_pending_warning", None)
+    if warning:
+        show_message("warning", warning, *placeholders)
 
 
 def show_message(kind: str, message: str, *placeholders) -> None:

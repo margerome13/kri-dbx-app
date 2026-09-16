@@ -19,9 +19,12 @@ from utils.forms import bump_and_rerun, render_pending_banner, show_message
 from utils.validation import (
     UNIT_FORMAT_HINTS,
     parse_reported_number,
+    parse_threshold_bounds,
+    resolve_rag_status,
     validate_actual_value,
-    validate_rag_status_matches_thresholds,
 )
+
+RAG_EMOJI = {"Green": "🟢", "Amber": "🟠", "Red": "🔴"}
 
 st.header("Submit / Edit Monthly KRI", divider=True)
 st.write(
@@ -88,23 +91,49 @@ if existing is not None:
         f"last updated {existing['updated_at'] or existing['submitted_at']}). Saving will update it."
     )
 
-with st.form("kri_submission_form"):
-    banner = st.empty()
+kri_unit = kri_row["unit_of_measure"]
+if kri_unit and kri_unit != "Status / Narrative":
+    st.caption(f"Expected format for **{kri_unit}**: {UNIT_FORMAT_HINTS.get(kri_unit, 'a plain number, optionally with %')}.")
 
-    kri_unit = kri_row["unit_of_measure"]
-    if kri_unit and kri_unit != "Status / Narrative":
-        st.caption(f"Expected format for **{kri_unit}**: {UNIT_FORMAT_HINTS.get(kri_unit, 'a plain number, optionally with %')}.")
+# Outside the form (unlike the rest of this page's inputs) so RAG status below
+# recomputes live on every keystroke instead of only after Save is clicked.
+actual_value_text = st.text_input(
+    f"Actual value ({kri_unit or 'as reported'})",
+    value="" if existing is None else str(existing["actual_value_text"] or ""),
+    key="kri_intake_actual_value",
+)
 
-    actual_value_text = st.text_input(
-        f"Actual value ({kri_unit or 'as reported'})",
-        value="" if existing is None else str(existing["actual_value_text"] or ""),
+actual_numeric = parse_reported_number(actual_value_text) if actual_value_text.strip() else None
+green_bounds = parse_threshold_bounds(kri_row["threshold_green"], kri_unit)
+amber_bounds = parse_threshold_bounds(kri_row["threshold_amber"], kri_unit)
+red_bounds = parse_threshold_bounds(kri_row["threshold_red"], kri_unit)
+resolved_rag = resolve_rag_status(actual_numeric, green_bounds, amber_bounds, red_bounds)
+
+if resolved_rag:
+    st.markdown(
+        f"**RAG status:** {RAG_EMOJI[resolved_rag]} {resolved_rag} "
+        "*(auto-computed from the Actual value against this KRI's thresholds)*"
+    )
+    rag_status = resolved_rag
+elif actual_value_text.strip():
+    st.caption(
+        "RAG status can't be auto-computed from this Actual value and the KRI's "
+        "thresholds (e.g. a narrative KRI, or a threshold that isn't fully defined) "
+        "-- select it manually."
     )
     rag_status = st.radio(
         "RAG status",
         ["Green", "Amber", "Red"],
         index=0 if existing is None else ["Green", "Amber", "Red"].index(existing["rag_status"]),
         horizontal=True,
+        key="kri_intake_rag_manual",
     )
+else:
+    rag_status = None
+
+with st.form("kri_submission_form"):
+    banner = st.empty()
+
     remarks = st.text_area(
         "Remarks (cause, action items, target date) — required for Amber/Red",
         value="" if existing is None else str(existing["remarks"] or ""),
@@ -116,40 +145,30 @@ with st.form("kri_submission_form"):
 
     if submitted:
         errors = []
-        actual_numeric = None
         if not actual_value_text.strip():
             errors.append("Actual value is required.")
         else:
             value_error = validate_actual_value("Actual value", actual_value_text, kri_unit)
             if value_error:
                 errors.append(value_error)
-            else:
-                actual_numeric = parse_reported_number(actual_value_text)
-                rag_error = validate_rag_status_matches_thresholds(
-                    actual_numeric,
-                    rag_status,
-                    kri_row["threshold_green"],
-                    kri_row["threshold_amber"],
-                    kri_row["threshold_red"],
-                    kri_unit,
-                )
-                if rag_error:
-                    errors.append(rag_error)
+        if actual_value_text.strip() and not rag_status:
+            errors.append(
+                "RAG status could not be determined for this Actual value -- check it "
+                "against the KRI's thresholds above."
+            )
         if rag_status in ("Amber", "Red") and not remarks.strip():
             errors.append("Remarks are required when RAG status is Amber or Red.")
 
         if errors:
             show_message("error", "\n".join(f"- {e}" for e in errors), banner, bottom_banner)
         else:
-            numeric_value = actual_numeric
-
             user = current_user_email()
             row = {
                 "submission_id": existing["submission_id"] if existing is not None else new_id(),
                 "kri_id": kri_id,
                 "reporting_period": period_first_of_month,
                 "actual_value_text": actual_value_text.strip(),
-                "actual_value_numeric": numeric_value,
+                "actual_value_numeric": actual_numeric,
                 "rag_status": rag_status,
                 "remarks": remarks.strip() or None,
                 "workflow_status": "Submitted",

@@ -186,6 +186,102 @@ def validate_rag_threshold_sequence(
     )
 
 
+# The smallest gap between two adjacent bands that ISN'T a real gap, because no valid
+# value can land strictly between them at this unit's own number format -- e.g. Days
+# only allows whole numbers, so a Green ending at 2 next to an Amber starting at 3
+# leaves nothing uncovered. Units not listed (Percent, and ratio-like formats with
+# unrestricted decimals) have no such floor: any positive gap is real.
+GAP_TOLERANCE = {
+    "Days": 1,
+    "Count": 1,
+    "Ratio": 0.001,
+    "PHP Amount": 0.01,
+}
+
+
+def find_rag_threshold_gap(
+    threshold_green: str,
+    threshold_amber: str,
+    threshold_red: str,
+    unit_of_measure: Optional[str] = None,
+) -> Optional[str]:
+    """Warn (non-blocking) when there's a numeric gap between adjacent Green/Amber/Red
+    bands wide enough to contain a value that would match none of the three -- e.g.
+    Amber "3-4" next to Red "46" leaves 5-45 undefined for a Count KRI. This never
+    blocks saving: a gap might be deliberate (the policy for that range genuinely
+    hasn't been decided yet), so it's surfaced for a human to confirm, not enforced.
+
+    Assumes the sequence already passed validate_rag_threshold_sequence() -- returns
+    None when it hasn't (or can't be determined), same skip conditions as that check.
+    """
+    if not unit_of_measure or unit_of_measure == NARRATIVE_UNIT:
+        return None
+
+    green = parse_threshold_bounds(threshold_green, unit_of_measure)
+    amber = parse_threshold_bounds(threshold_amber, unit_of_measure)
+    red = parse_threshold_bounds(threshold_red, unit_of_measure)
+    if green is None or amber is None or red is None:
+        return None
+
+    tolerance = GAP_TOLERANCE.get(unit_of_measure, 0)
+    ordered = sorted([("Green", green), ("Amber", amber), ("Red", red)], key=lambda item: item[1][0])
+
+    gaps = []
+    for (low_label, low_bounds), (high_label, high_bounds) in zip(ordered, ordered[1:]):
+        gap_size = high_bounds[0] - low_bounds[1]
+        if gap_size > tolerance:
+            gaps.append(
+                f"{low_label} ends at {_format_bound(low_bounds[1], low_bounds[1], unit_of_measure)}, "
+                f"{high_label} starts at {_format_bound(high_bounds[0], high_bounds[0], unit_of_measure)} "
+                "-- values in between match no color."
+            )
+    if not gaps:
+        return None
+    return "Possible threshold gap: " + " ".join(gaps)
+
+
+def resolve_rag_status(
+    actual_numeric: Optional[float],
+    green_bounds: Optional[tuple[float, float]],
+    amber_bounds: Optional[tuple[float, float]],
+    red_bounds: Optional[tuple[float, float]],
+) -> Optional[str]:
+    """Return the RAG label ("Green"/"Amber"/"Red") the actual value falls into, given
+    each color's (lo, hi) bounds from parse_threshold_bounds() (None if that color's
+    threshold is blank/unparseable).
+
+    A value inside one band's own numbers is a direct match. A value in the numeric
+    gap between bands (e.g. Amber "3-4" next to Red "46" -- see find_rag_threshold_gap())
+    resolves to whichever of Green/Red sits on that side of Amber, on the assumption
+    that thresholds only get worse (or only get better) the further you go past the
+    defined range in one direction -- so a value past Amber on the Red side reads Red
+    even if it doesn't hit Red's own typed number, and likewise on the Green side.
+
+    Returns None -- meaning "can't be resolved automatically, ask the submitter" --
+    when actual_numeric is None, or green/amber/red_bounds aren't all available (no
+    unit_of_measure, narrative KRI, or a threshold that's blank/unparseable).
+    """
+    if actual_numeric is None:
+        return None
+
+    for label, bounds in (("Green", green_bounds), ("Amber", amber_bounds), ("Red", red_bounds)):
+        if bounds and bounds[0] <= actual_numeric <= bounds[1]:
+            return label
+
+    if not green_bounds or not amber_bounds or not red_bounds:
+        return None
+
+    a_lo, a_hi = amber_bounds
+    low_label = "Green" if green_bounds[0] < red_bounds[0] else "Red"
+    high_label = "Red" if low_label == "Green" else "Green"
+
+    if actual_numeric < a_lo:
+        return low_label
+    if actual_numeric > a_hi:
+        return high_label
+    return None
+
+
 def validate_actual_value(label: str, value: str, unit_of_measure: Optional[str] = None) -> Optional[str]:
     """Validate a single reported actual value against its KRI's unit_of_measure.
 
@@ -222,40 +318,3 @@ def parse_reported_number(value: str) -> Optional[float]:
         return None
 
 
-def validate_rag_status_matches_thresholds(
-    actual_numeric: Optional[float],
-    rag_status: str,
-    threshold_green: Optional[str],
-    threshold_amber: Optional[str],
-    threshold_red: Optional[str],
-    unit_of_measure: Optional[str] = None,
-) -> Optional[str]:
-    """Ensure the selected RAG status matches the threshold band the reported Actual
-    value falls into, e.g. a Days KRI with Red = "7-10" and an Actual value of 8 must
-    be submitted as Red, not Green or Amber.
-
-    Silently skipped (returns None) when there's nothing numeric to compare: narrative
-    KRIs / no unit_of_measure, a non-numeric actual value, or a catalog with no
-    parseable threshold for a color. If the value falls in more than one band (only
-    possible when the catalog's own thresholds overlap), any RAG status matching one
-    of them is accepted rather than blocking the submission on a catalog data problem.
-    """
-    if actual_numeric is None or not unit_of_measure or unit_of_measure == NARRATIVE_UNIT:
-        return None
-
-    bands = {
-        "Green": parse_threshold_bounds(threshold_green, unit_of_measure),
-        "Amber": parse_threshold_bounds(threshold_amber, unit_of_measure),
-        "Red": parse_threshold_bounds(threshold_red, unit_of_measure),
-    }
-    matches = [label for label, bound in bands.items() if bound and bound[0] <= actual_numeric <= bound[1]]
-
-    if not matches or rag_status in matches:
-        return None
-
-    suffix = "%" if unit_of_measure == "Percent" else ""
-    return (
-        f"Actual value {actual_numeric:g}{suffix} falls within the "
-        f"{' / '.join(matches)} threshold, not {rag_status}. Select "
-        f"{' or '.join(matches)} instead, or correct the Actual value."
-    )

@@ -17,6 +17,7 @@ from utils.db import (
 from utils.forms import bump_and_rerun, form_gen, render_pending_banner, show_message
 from utils.validation import (
     UNIT_FORMAT_HINTS,
+    find_rag_threshold_gap,
     missing_required_fields,
     validate_kri_title,
     validate_rag_threshold_sequence,
@@ -172,4 +173,9 @@ with st.form(f"add_kri_form_{gen}"):
                 after=row,
             )
             st.cache_data.clear()
-            bump_and_rerun("add_kri", f"KRI '{kri_title.strip()}' added.")
+            gap_warning = find_rag_threshold_gap(
+                threshold_green, threshold_amber, threshold_red, unit_of_measure
+            )
+            bump_and_rerun(
+                "add_kri", f"KRI '{kri_title.strip()}' added.", warning=gap_warning
+            )

@@ -13,7 +13,12 @@ from utils.db import (
     sql_literal,
 )
 from utils.forms import bump_and_rerun, render_pending_banner, show_message
-from utils.validation import UNIT_FORMAT_HINTS, validate_rag_threshold_sequence, validate_threshold
+from utils.validation import (
+    UNIT_FORMAT_HINTS,
+    find_rag_threshold_gap,
+    validate_rag_threshold_sequence,
+    validate_threshold,
+)
 
 require_page_access("catalog_manage")
 
@@ -107,4 +112,5 @@ else:
                     after={**row.to_dict(), **set_values},
                 )
                 st.cache_data.clear()
-                bump_and_rerun("edit_kri", "KRI updated.", bump=False)
+                gap_warning = find_rag_threshold_gap(new_green, new_amber, new_red, edit_unit)
+                bump_and_rerun("edit_kri", "KRI updated.", bump=False, warning=gap_warning)
