@@ -55,7 +55,9 @@ warehouse / notebook with `MODIFY` on `dg_dev.sandbox`). `006` only applies if y
 already ran the original `001` (which used `sort_order` as a plain display-order column
 with `(lookup_type, lookup_value)` as the primary key) — a fresh `001` already creates
 the current shape and `006` is a no-op you can skip. `008` seeds `kri_user_roles` with
-the users originally hardcoded in `config/user_roles.py`; safe to re-run.
+the users originally hardcoded in `config/user_roles.py`; safe to re-run. When shipping
+the RCO maker–checker design, also run `009` (`review_notes` on submissions) and `010`
+(`department` on user roles) — see [docs/design/maker-checker-department-scope.md](docs/design/maker-checker-department-scope.md).
 
 ### Threshold format rules (unit-of-measure aware)
 
@@ -165,12 +167,16 @@ directly into SQL strings.
 
 ## Roles
 
-| Role | Sees |
+**Deployed today** (see [maker–checker & department scope design](docs/design/maker-checker-department-scope.md) for the RCO-approved target):
+
+| Role | Sees (today) |
 |---|---|
 | ADMIN | Everything: Monthly Intake, KRI Overview (Dashboard), Add a KRI, Manage Existing KRIs, Lookup Values, User Role Manager |
 | MAKER | Monthly Intake only |
 | CHECKER | Monthly Intake + Manage Existing KRIs (not Add a KRI, not Lookup Values, not User Role Manager) |
 | *(unlisted)* | An "Access Denied" page, nothing else |
+
+**Planned after maker–checker implementation:** CHECKER loses Monthly Intake and Manage Existing KRIs; gains **Review Submissions** (approve/reject only, own department). MAKER stays on Monthly Intake (own department). Approved submissions become read-only for Maker/Checker; **Admin-only** correction. Details: [docs/design/maker-checker-department-scope.md](docs/design/maker-checker-department-scope.md).
 
 Role membership lives in `dg_dev.sandbox.kri_user_roles` — managed entirely in-app via
 **Administration → User Role Manager** (Admin only): add a user with a role, change
@@ -251,10 +257,14 @@ Still worth independently verifying before wider rollout: RAG-threshold parsing 
 attempted anywhere (submitters pick RAG manually, by design), and the historical Excel
 backfill (see below) hasn't been loaded into the live tables yet.
 
+## Product design (RCO)
+
+- **[Maker–checker monthly submissions & department-scoped roles](docs/design/maker-checker-department-scope.md)** — approved workflow, schema deltas (`009`/`010`), page split (Monthly Intake vs Review Submissions), and implementation checklist. App code on `main` may still reflect the pre-maker–checker behavior until that checklist is completed.
+
 ## Other tables you may want later (not built here)
 
-- **`kri_workflow_comments`** if approval needs threaded back-and-forth beyond the
-  single `remarks` field (maker/checker discussion history).
+- **`kri_workflow_comments`** if approval needs threaded back-and-forth beyond
+  `review_notes` (v1 uses a single Checker note per approve/reject).
 - **A department→entity ownership mapping table** if department names should be
   constrained per entity rather than global (right now any department can be picked
   for any entity).
