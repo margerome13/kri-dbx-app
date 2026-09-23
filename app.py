@@ -14,21 +14,27 @@ st.title(":material/monitoring: Maya KRI — Risk & Compliance Office")
 
 user_email = current_user_email()
 role = get_user_role(user_email)
+dept = get_user_department(user_email)
 
-badge_col, id_col = st.columns([1, 3])
-with badge_col:
-    if role == "ADMIN":
-        st.success(f"🔑 Role: {role}")
-    elif role == "MAKER":
-        st.info(f"📝 Role: {role}")
-    elif role == "CHECKER":
-        st.warning(f"✅ Role: {role}")
+if role in ("MAKER", "CHECKER"):
+    if dept:
+        dept_part = f" · **Department:** {dept}"
     else:
-        st.error(f"🚫 Role: {role}")
-with id_col:
-    dept = get_user_department(user_email)
-    dept_line = f" · **Department:** {dept}" if dept and role in ("MAKER", "CHECKER") else ""
-    st.caption(f"👤 Logged in as **{user_email}**{dept_line}")
+        dept_part = " · **Department:** *(not set — ask an Admin)*"
+else:
+    dept_part = ""
+
+role_icons = {
+    "ADMIN": ("🔑", "success"),
+    "MAKER": ("📝", "info"),
+    "CHECKER": ("✅", "warning"),
+}
+icon, tone = role_icons.get(role, ("🚫", "error"))
+identity_line = (
+    f"{icon} **Role:** {role}{dept_part} &nbsp;&nbsp;|&nbsp;&nbsp; "
+    f"👤 **Logged in as:** {user_email}"
+)
+getattr(st, tone)(identity_line)
 
 pages = {
     group["title"]: [
