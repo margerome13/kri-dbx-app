@@ -1,4 +1,10 @@
-"""RCO dashboard aggregations over submission history (pandas in, counts/lists out)."""
+"""RCO dashboard aggregations over submission history (pandas in, counts/lists out).
+
+RCO-confirmed rules (see docs/design/rco-dashboard-signals.md):
+- Trending Amber: last 3 consecutive reporting periods per KRI are all Amber (same
+  rule for monthly, quarterly, etc. — three periods on that KRI's timeline).
+- Return to Green: latest period Green, prior period Amber or Red.
+"""
 from __future__ import annotations
 
 import pandas as pd

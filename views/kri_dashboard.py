@@ -75,9 +75,10 @@ dept_recovery = departments_with_recovery(recovery_df)
 
 st.subheader("RCO framework signals", divider="gray")
 st.caption(
-    f"**Trending Amber:** a KRI with **{CONSECUTIVE_AMBER_PERIODS} consecutive** "
-    f"Amber periods (most recent periods in the lookback window). "
-    "**Return to Green:** latest period is Green and the prior period was Amber or Red."
+    f"**Trending Amber:** **{CONSECUTIVE_AMBER_PERIODS} consecutive reporting periods** "
+    f"for the same KRI, all Amber (monthly, quarterly, and other frequencies use the "
+    f"same 3-period rule). **Return to Green:** that KRI's latest period is Green and "
+    f"the immediately prior period was Amber or Red."
 )
 
 m1, m2, m3, m4 = st.columns(4)
