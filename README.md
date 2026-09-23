@@ -167,16 +167,14 @@ directly into SQL strings.
 
 ## Roles
 
-**Deployed today** (see [maker–checker & department scope design](docs/design/maker-checker-department-scope.md) for the RCO-approved target):
+| Role | Sees | Data scope |
+|---|---|---|
+| ADMIN | Monthly Intake, Review Submitted KRIs, KRI Overview, Add a KRI, Manage Existing KRIs, Lookup Values, User Role Manager | All departments |
+| MAKER | Monthly Intake only | Assigned **department** only (`kri_user_roles.department`) |
+| CHECKER | Review Submitted KRIs only (approve / reject with reason) | Assigned **department** only |
+| *(unlisted)* | Access Denied | — |
 
-| Role | Sees (today) |
-|---|---|
-| ADMIN | Everything: Monthly Intake, KRI Overview (Dashboard), Add a KRI, Manage Existing KRIs, Lookup Values, User Role Manager |
-| MAKER | Monthly Intake only |
-| CHECKER | Monthly Intake + Manage Existing KRIs (not Add a KRI, not Lookup Values, not User Role Manager) |
-| *(unlisted)* | An "Access Denied" page, nothing else |
-
-**Planned after maker–checker implementation:** CHECKER loses Monthly Intake and Manage Existing KRIs; gains **Review Submissions** (approve/reject only, own department). MAKER stays on Monthly Intake (own department). Approved submissions become read-only for Maker/Checker; **Admin-only** correction. Details: [docs/design/maker-checker-department-scope.md](docs/design/maker-checker-department-scope.md).
+MAKER/CHECKER rows must include a department in **User Role Manager**. Approved monthly submissions are read-only for Makers; corrections after approval are **Admin-only**. Design notes: [docs/design/maker-checker-department-scope.md](docs/design/maker-checker-department-scope.md).
 
 Role membership lives in `dg_dev.sandbox.kri_user_roles` — managed entirely in-app via
 **Administration → User Role Manager** (Admin only): add a user with a role, change

@@ -1,6 +1,6 @@
 import streamlit as st
 
-from config.user_roles import get_user_role
+from config.user_roles import get_user_department, get_user_role
 from utils.db import current_user_email
 from view_groups import get_groups_for_user
 
@@ -26,7 +26,9 @@ with badge_col:
     else:
         st.error(f"🚫 Role: {role}")
 with id_col:
-    st.caption(f"👤 Logged in as **{user_email}**")
+    dept = get_user_department(user_email)
+    dept_line = f" · **Department:** {dept}" if dept and role in ("MAKER", "CHECKER") else ""
+    st.caption(f"👤 Logged in as **{user_email}**{dept_line}")
 
 pages = {
     group["title"]: [

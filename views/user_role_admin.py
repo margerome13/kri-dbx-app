@@ -8,6 +8,7 @@ from utils.db import (
     build_delete,
     build_merge_upsert,
     current_user_email,
+    fetch_lookup,
     now_utc,
     run_query,
     run_statement,
@@ -19,8 +20,9 @@ require_page_access("user_role_admin")
 
 st.header("User Role Manager", divider=True)
 st.write(
-    "Control who can use this app and what they can see. Changes here take effect "
-    "immediately -- no code change or redeploy needed."
+    "Control who can use this app and what they can see. **MAKER** and **CHECKER** "
+    "must have a department — they only see that department's KRIs. Changes take "
+    "effect immediately."
 )
 
 if BOOTSTRAP_ADMINS:
@@ -32,8 +34,8 @@ if BOOTSTRAP_ADMINS:
     )
 
 roles_df = run_query(
-    f"SELECT user_email, role, assigned_by, assigned_at, updated_by, updated_at "
-    f"FROM {TBL_USER_ROLES} ORDER BY role, user_email"
+    f"SELECT user_email, role, department, assigned_by, assigned_at, updated_by, updated_at "
+    f"FROM {TBL_USER_ROLES} ORDER BY role, department, user_email"
 )
 st.dataframe(roles_df, use_container_width=True, hide_index=True)
 
@@ -43,11 +45,11 @@ admin_emails_in_table = (
     else set()
 )
 
+department_options = fetch_lookup("department")
+
 
 def blocks_last_admin(target_email: str, new_role) -> bool:
-    """True if this change would remove the last ADMIN row from the table.
-    (BOOTSTRAP_ADMINS still protects against a total lockout either way -- this is
-    a softer safeguard so day-to-day admin work doesn't always fall back to it.)"""
+    """True if this change would remove the last ADMIN row from the table."""
     target = target_email.lower()
     if target not in admin_emails_in_table:
         return False
@@ -67,6 +69,16 @@ with tab_upsert:
             placeholder="firstname.lastname@paymaya.com",
         )
         role_input = st.selectbox("Role", VALID_ROLES, key=f"user_role_role_{gen}")
+        needs_dept = role_input in ("MAKER", "CHECKER")
+        if needs_dept:
+            dept_input = st.selectbox(
+                "Department (required for Maker / Checker)",
+                department_options,
+                key=f"user_role_dept_{gen}",
+            )
+        else:
+            dept_input = None
+            st.caption("Admins are not scoped to a department.")
 
         submitted = st.form_submit_button("Save", type="primary")
         bottom_banner = st.empty()
@@ -81,6 +93,8 @@ with tab_upsert:
                 email_error = validate_maya_email(email_clean)
                 if email_error:
                     errors.append(email_error)
+            if needs_dept and not dept_input:
+                errors.append("Department is required for MAKER and CHECKER.")
             if email_clean and not errors and blocks_last_admin(email_clean, role_input):
                 errors.append(
                     f"'{email_clean}' is the only ADMIN in this table. Add another "
@@ -95,6 +109,7 @@ with tab_upsert:
                 row = {
                     "user_email": email_clean,
                     "role": role_input,
+                    "department": dept_input if needs_dept else None,
                     "assigned_by": existing.iloc[0]["assigned_by"] if not existing.empty else user,
                     "assigned_at": existing.iloc[0]["assigned_at"] if not existing.empty else now_utc(),
                     "updated_by": user,
@@ -109,7 +124,11 @@ with tab_upsert:
                     before=None if existing.empty else existing.iloc[0].to_dict(),
                     after=row,
                 )
-                bump_and_rerun("user_role_upsert", f"'{email_clean}' is now {role_input}.")
+                dept_msg = f", department **{dept_input}**" if needs_dept else ""
+                bump_and_rerun(
+                    "user_role_upsert",
+                    f"'{email_clean}' is now **{role_input}**{dept_msg}.",
+                )
 
 with tab_remove:
     if roles_df.empty:
@@ -118,10 +137,16 @@ with tab_remove:
         with st.form("user_role_remove_form"):
             remove_banner = st.empty()
 
+            def _label(e: str) -> str:
+                r = roles_df.loc[roles_df["user_email"] == e].iloc[0]
+                dept = r.get("department")
+                dept_bit = f", {dept}" if dept and str(dept) != "nan" else ""
+                return f"{e} ({r['role']}{dept_bit})"
+
             email_to_remove = st.selectbox(
                 "User to remove",
                 roles_df["user_email"].tolist(),
-                format_func=lambda e: f"{e} ({roles_df.loc[roles_df['user_email'] == e, 'role'].iloc[0]})",
+                format_func=_label,
             )
             remove_submitted = st.form_submit_button("Remove access", type="primary")
             remove_bottom_banner = st.empty()

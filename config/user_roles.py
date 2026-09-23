@@ -11,18 +11,18 @@ always at least one way back in. Keep this list as short as possible.
 """
 from typing import Optional
 
+import pandas as pd
+
 BOOTSTRAP_ADMINS = [
     "mar.abana@paymaya.com",
 ]
 
 VALID_ROLES = ("ADMIN", "MAKER", "CHECKER")
 
-# Page keys a role can see. Admin can view all sections; Maker only Monthly
-# Intake; Checker Monthly Intake plus Manage Existing KRIs (not Add a KRI, not
-# Lookup Values, not User Role Manager).
 ROLE_PAGES = {
     "ADMIN": {
         "monthly_intake",
+        "review_submissions",
         "dashboard",
         "catalog_add",
         "catalog_manage",
@@ -30,26 +30,40 @@ ROLE_PAGES = {
         "user_role_admin",
     },
     "MAKER": {"monthly_intake"},
-    "CHECKER": {"monthly_intake", "catalog_manage"},
+    "CHECKER": {"review_submissions"},
 }
 
 
-def _load_role_table() -> dict:
-    """{lowercased user_email: role}, freshly queried from kri_user_roles on every
-    call -- this app doesn't cache any data query, so role lookups aren't an
-    exception. Returns {} rather than raising if the query fails, so a table or
-    connection problem can't lock everyone out; BOOTSTRAP_ADMINS resolves
-    independently of this.
-    """
+def _load_role_rows() -> dict[str, dict]:
+    """{lowercased user_email: {role, department}} from kri_user_roles."""
     from utils.db import TBL_USER_ROLES, run_query
 
     try:
-        df = run_query(f"SELECT user_email, role FROM {TBL_USER_ROLES}")
+        df = run_query(
+            f"SELECT user_email, role, department FROM {TBL_USER_ROLES}"
+        )
     except Exception:
-        return {}
+        try:
+            df = run_query(f"SELECT user_email, role FROM {TBL_USER_ROLES}")
+            df["department"] = None
+        except Exception:
+            return {}
     if df.empty:
         return {}
-    return {str(email).lower(): role for email, role in zip(df["user_email"], df["role"])}
+    rows = {}
+    for _, r in df.iterrows():
+        email = str(r["user_email"]).lower()
+        dept = r.get("department")
+        if dept is None or (isinstance(dept, float) and pd.isna(dept)):
+            dept_val = None
+        else:
+            dept_val = str(dept).strip() or None
+        rows[email] = {"role": r["role"], "department": dept_val}
+    return rows
+
+
+def _load_role_table() -> dict[str, str]:
+    return {email: row["role"] for email, row in _load_role_rows().items()}
 
 
 def _resolve_role(user_email: Optional[str], role_table: dict) -> str:
@@ -64,6 +78,16 @@ def _resolve_role(user_email: Optional[str], role_table: dict) -> str:
 
 def get_user_role(user_email: Optional[str]) -> str:
     return _resolve_role(user_email, _load_role_table())
+
+
+def get_user_department(user_email: Optional[str]) -> Optional[str]:
+    if get_user_role(user_email) == "ADMIN":
+        return None
+    email = (user_email or "").lower().strip()
+    row = _load_role_rows().get(email)
+    if not row:
+        return None
+    return row.get("department")
 
 
 def pages_for_role(role: str) -> set:

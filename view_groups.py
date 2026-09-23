@@ -11,6 +11,13 @@ PAGE_REGISTRY = [
         "icon": ":material/edit_note:",
     },
     {
+        "key": "review_submissions",
+        "group": "Review",
+        "label": "Review Submitted KRIs",
+        "page": "views/kri_review_submissions.py",
+        "icon": ":material/fact_check:",
+    },
+    {
         "key": "dashboard",
         "group": "Dashboard",
         "label": "KRI Overview",
