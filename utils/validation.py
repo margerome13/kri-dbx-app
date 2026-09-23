@@ -2,30 +2,23 @@
 
 Threshold validation is unit-of-measure aware: what counts as a valid Green/Amber/Red
 threshold depends on whether the KRI is measured in Percent, Ratio, Days, PHP Amount,
-Count, or is a free-text "Status / Narrative" KRI (e.g. "On-time"). See
-validate_threshold() for the rules, and the KRI Catalog Manager README section for the
-rationale (percent form over decimal form, why "-" isn't always a range separator).
+Count, Duration (H:MM:SS), or is a free-text "Status / Narrative" KRI (e.g. "On-time").
 """
 import re
 from typing import Optional
 
 KRI_TITLE_RE = re.compile(r"^[A-Za-z0-9 ]+$")
 
-# Every dbx Maya account is firstname.lastname@paymaya.com, e.g. "mar.abana@paymaya.com".
 MAYA_EMAIL_RE = re.compile(r"^[A-Za-z]+\.[A-Za-z]+@paymaya\.com$", re.IGNORECASE)
 
-# Base character set for any numeric threshold (narrative KRIs are exempt entirely).
 THRESHOLD_CHARSET_RE = re.compile(r"^[0-9><%=.\-]+$")
+DURATION_THRESHOLD_CHARSET_RE = re.compile(r"^[0-9:><=\-]+$")
 
-# A '-' only counts as a range separator when it sits between two numbers/operators
-# (e.g. "75%-90%", "16.01%-24%"), not when it's a leading negative sign (e.g. "-5%").
 RANGE_SPLIT_RE = re.compile(r"(?<=[0-9%])-(?=[0-9<>=])")
+DURATION_RANGE_SPLIT_RE = re.compile(r"(?<=[0-9])-(?=[0-9<>=])")
 
 LEADING_OPERATOR_RE = re.compile(r"^[<>=]*")
 
-# Format each individual number in a threshold must match, keyed by unit_of_measure.
-# A leading '-' is always allowed (a genuinely negative threshold), separate from the
-# range-separator '-' handled by RANGE_SPLIT_RE above.
 UNIT_NUMBER_PATTERNS = {
     "Percent": re.compile(r"^-?\d+(\.\d+)?%$"),
     "Ratio": re.compile(r"^-?\d+(\.\d{1,3})?$"),
@@ -33,6 +26,10 @@ UNIT_NUMBER_PATTERNS = {
     "PHP Amount": re.compile(r"^-?\d+(\.\d{1,2})?$"),
     "Count": re.compile(r"^-?\d+$"),
 }
+
+DURATION_UNIT = "Duration (H:MM:SS)"
+DURATION_SEGMENT_RE = re.compile(r"^(\d+):([0-5]\d):([0-5]\d)$")
+
 DEFAULT_NUMBER_PATTERN = re.compile(r"^-?\d+(\.\d+)?%?$")
 
 UNIT_FORMAT_HINTS = {
@@ -41,13 +38,13 @@ UNIT_FORMAT_HINTS = {
     "Days": "a whole number, e.g. 60",
     "PHP Amount": "a decimal number with up to 2 decimal places, e.g. 1000000.00",
     "Count": "a whole number, e.g. 5",
+    DURATION_UNIT: "duration as H:MM:SS (minutes and seconds 00–59), e.g. 1:30:00",
 }
 
 NARRATIVE_UNIT = "Status / Narrative"
 
 
 def missing_required_fields(fields: dict) -> list[str]:
-    """fields: {label: value}. Returns labels of any value that is blank/None."""
     missing = []
     for label, value in fields.items():
         if value is None:
@@ -64,11 +61,6 @@ def validate_kri_title(title: str) -> Optional[str]:
 
 
 def validate_maya_email(email: str) -> Optional[str]:
-    """Every dbx Maya account follows firstname.lastname@paymaya.com -- e.g.
-    "mar.abana@paymaya.com". Reject anything else (wrong domain, missing the dot,
-    a middle name/initial, numbers) so a typo doesn't silently grant/deny access to
-    the wrong person.
-    """
     if not MAYA_EMAIL_RE.match(email.strip()):
         return (
             "User email must be a Maya account in the form "
@@ -77,8 +69,26 @@ def validate_maya_email(email: str) -> Optional[str]:
     return None
 
 
-def _split_range(value: str) -> list[str]:
-    match = RANGE_SPLIT_RE.search(value)
+def parse_duration_to_seconds(text: str) -> Optional[float]:
+    """Parse H:MM:SS into total seconds. Returns None if the format is invalid."""
+    text = "".join(text.split())
+    match = DURATION_SEGMENT_RE.match(text)
+    if not match:
+        return None
+    hours, minutes, seconds = int(match.group(1)), int(match.group(2)), int(match.group(3))
+    return float(hours * 3600 + minutes * 60 + seconds)
+
+
+def seconds_to_duration(seconds: float) -> str:
+    total = int(round(seconds))
+    hours, rem = divmod(total, 3600)
+    minutes, secs = divmod(rem, 60)
+    return f"{hours}:{minutes:02d}:{secs:02d}"
+
+
+def _split_range(value: str, unit_of_measure: Optional[str] = None) -> list[str]:
+    splitter = DURATION_RANGE_SPLIT_RE if unit_of_measure == DURATION_UNIT else RANGE_SPLIT_RE
+    match = splitter.search(value)
     if not match:
         return [value]
     return [value[: match.start()], value[match.start() + 1 :]]
@@ -89,34 +99,54 @@ def _parse_segment(segment: str) -> tuple[str, str]:
     return operator, segment[len(operator) :]
 
 
-def validate_threshold(label: str, value: str, unit_of_measure: Optional[str] = None) -> Optional[str]:
-    """Validate one Green/Amber/Red threshold string against its KRI's unit_of_measure.
+def _threshold_charset_ok(value: str, unit_of_measure: Optional[str]) -> bool:
+    if unit_of_measure == DURATION_UNIT:
+        return bool(DURATION_THRESHOLD_CHARSET_RE.match(value))
+    return bool(THRESHOLD_CHARSET_RE.match(value))
 
-    - "Status / Narrative" KRIs accept any free text (e.g. "On-time").
-    - Otherwise, the string may only contain digits, >, <, %, =, ., and - (internal
-      whitespace is stripped first, so "75% - 90%" is treated the same as "75%-90%").
-    - Each number in the threshold (there are two when it's a range, e.g. "75%-90%")
-      must match the format for `unit_of_measure` (see UNIT_NUMBER_PATTERNS).
-    - When it's a range or a "-" separates two comparisons, the left number must be
-      strictly lower than the right one (e.g. ">=75%-90%" passes, "90%-89%" fails).
-    """
-    value = "".join(value.split())  # drop internal whitespace, e.g. "75% - 90%"
+
+def _parse_bound_number(number_part: str, unit_of_measure: Optional[str]) -> Optional[float]:
+    if unit_of_measure == DURATION_UNIT:
+        return parse_duration_to_seconds(number_part)
+    pattern = UNIT_NUMBER_PATTERNS.get(unit_of_measure, DEFAULT_NUMBER_PATTERN)
+    if not pattern.match(number_part):
+        return None
+    return float(number_part.rstrip("%"))
+
+
+def _segment_format_ok(segment: str, unit_of_measure: Optional[str]) -> bool:
+    _, number_part = _parse_segment(segment)
+    if unit_of_measure == DURATION_UNIT:
+        return parse_duration_to_seconds(number_part) is not None
+    pattern = UNIT_NUMBER_PATTERNS.get(unit_of_measure, DEFAULT_NUMBER_PATTERN)
+    return bool(pattern.match(number_part))
+
+
+def validate_threshold(label: str, value: str, unit_of_measure: Optional[str] = None) -> Optional[str]:
+    value = "".join(value.split())
 
     if unit_of_measure == NARRATIVE_UNIT:
         return None
 
-    if not THRESHOLD_CHARSET_RE.match(value):
-        return f"{label} threshold may only contain digits, >, <, %, =, ., and -."
+    if not _threshold_charset_ok(value, unit_of_measure):
+        chars = "digits, >, <, =, ., -, and :" if unit_of_measure == DURATION_UNIT else "digits, >, <, %, =, ., and -"
+        return f"{label} threshold may only contain {chars}."
 
-    pattern = UNIT_NUMBER_PATTERNS.get(unit_of_measure, DEFAULT_NUMBER_PATTERN)
-    segments = _split_range(value)
+    segments = _split_range(value, unit_of_measure)
     numbers = []
     for segment in segments:
-        operator, number_part = _parse_segment(segment)
-        if not pattern.match(number_part):
+        if not _segment_format_ok(segment, unit_of_measure):
             hint = UNIT_FORMAT_HINTS.get(unit_of_measure, "a plain number, optionally with %")
-            return f"{label} threshold '{segment}' doesn't match the expected format for {unit_of_measure or 'this unit'} ({hint})."
-        numbers.append(float(number_part.rstrip("%")))
+            return (
+                f"{label} threshold '{segment}' doesn't match the expected format for "
+                f"{unit_of_measure or 'this unit'} ({hint})."
+            )
+        _, number_part = _parse_segment(segment)
+        parsed = _parse_bound_number(number_part, unit_of_measure)
+        if parsed is None:
+            hint = UNIT_FORMAT_HINTS.get(unit_of_measure, "a plain number, optionally with %")
+            return f"{label} threshold '{segment}' doesn't match the expected format for {unit_of_measure} ({hint})."
+        numbers.append(parsed)
 
     if len(numbers) == 2 and not (numbers[0] < numbers[1]):
         return (
@@ -128,35 +158,33 @@ def validate_threshold(label: str, value: str, unit_of_measure: Optional[str] = 
 
 
 def parse_threshold_bounds(value: str, unit_of_measure: Optional[str]) -> Optional[tuple[float, float]]:
-    """Extract the (lo, hi) numeric bounds of an already-valid Green/Amber/Red threshold
-    string, e.g. "5" / ">=75%" -> (5, 5) / (75, 75), and "75%-90%" -> (75, 90).
-
-    Returns None for a blank value, a "Status / Narrative" KRI (or no unit set), or a
-    string that doesn't match validate_threshold()'s own format rules -- that error is
-    reported separately by validate_threshold(); this only supports the cross-field
-    comparisons below, which assume each field already passed on its own.
-    """
     if not value or not value.strip():
         return None
     if not unit_of_measure or unit_of_measure == NARRATIVE_UNIT:
         return None
 
     value = "".join(value.split())
-    if not THRESHOLD_CHARSET_RE.match(value):
+    if not _threshold_charset_ok(value, unit_of_measure):
         return None
 
-    pattern = UNIT_NUMBER_PATTERNS.get(unit_of_measure, DEFAULT_NUMBER_PATTERN)
     numbers = []
-    for segment in _split_range(value):
-        _, number_part = _parse_segment(segment)
-        if not pattern.match(number_part):
+    for segment in _split_range(value, unit_of_measure):
+        if not _segment_format_ok(segment, unit_of_measure):
             return None
-        numbers.append(float(number_part.rstrip("%")))
+        _, number_part = _parse_segment(segment)
+        parsed = _parse_bound_number(number_part, unit_of_measure)
+        if parsed is None:
+            return None
+        numbers.append(parsed)
 
     return (min(numbers), max(numbers))
 
 
 def _format_bound(lo: float, hi: float, unit_of_measure: Optional[str]) -> str:
+    if unit_of_measure == DURATION_UNIT:
+        if lo == hi:
+            return seconds_to_duration(lo)
+        return f"{seconds_to_duration(lo)}-{seconds_to_duration(hi)}"
     suffix = "%" if unit_of_measure == "Percent" else ""
     if lo == hi:
         return f"{lo:g}{suffix}"
@@ -169,13 +197,6 @@ def validate_rag_threshold_sequence(
     threshold_red: str,
     unit_of_measure: Optional[str] = None,
 ) -> Optional[str]:
-    """Ensure a KRI's Green/Amber/Red thresholds form one sequential, non-overlapping
-    order: either increasing (Green < Amber < Red) or decreasing (Red < Amber < Green).
-
-    Assumes each threshold already passed validate_threshold() individually -- if any
-    bound can't be parsed (blank, narrative, or an invalid format), this silently
-    returns None since that field's own error already covers it.
-    """
     if not unit_of_measure or unit_of_measure == NARRATIVE_UNIT:
         return None
 
@@ -203,19 +224,13 @@ def validate_rag_threshold_sequence(
     )
 
 
-# The smallest gap between two adjacent bands that ISN'T a real gap. For Days/Count,
-# that's because no valid value can land strictly between two whole numbers (a Green
-# ending at 2 next to an Amber starting at 3 leaves nothing uncovered). Percent's
-# format technically allows unlimited decimals, so no tolerance is ever fully
-# "correct" -- but every threshold actually entered so far is whole (or near-whole)
-# percentages, so a tolerance of 1 point avoids flagging the ordinary, deliberate
-# case (Green "0%", Amber "1%-3%", Red "4%") while still catching a real jump.
 GAP_TOLERANCE = {
     "Days": 1,
     "Count": 1,
     "Ratio": 0.001,
     "PHP Amount": 0.01,
     "Percent": 1,
+    DURATION_UNIT: 1,
 }
 
 
@@ -225,15 +240,6 @@ def find_rag_threshold_gap(
     threshold_red: str,
     unit_of_measure: Optional[str] = None,
 ) -> Optional[str]:
-    """Warn (non-blocking) when there's a numeric gap between adjacent Green/Amber/Red
-    bands wide enough to contain a value that would match none of the three -- e.g.
-    Amber "3-4" next to Red "46" leaves 5-45 undefined for a Count KRI. This never
-    blocks saving: a gap might be deliberate (the policy for that range genuinely
-    hasn't been decided yet), so it's surfaced for a human to confirm, not enforced.
-
-    Assumes the sequence already passed validate_rag_threshold_sequence() -- returns
-    None when it hasn't (or can't be determined), same skip conditions as that check.
-    """
     if not unit_of_measure or unit_of_measure == NARRATIVE_UNIT:
         return None
 
@@ -266,21 +272,6 @@ def resolve_rag_status(
     amber_bounds: Optional[tuple[float, float]],
     red_bounds: Optional[tuple[float, float]],
 ) -> Optional[str]:
-    """Return the RAG label ("Green"/"Amber"/"Red") the actual value falls into, given
-    each color's (lo, hi) bounds from parse_threshold_bounds() (None if that color's
-    threshold is blank/unparseable).
-
-    A value inside one band's own numbers is a direct match. A value in the numeric
-    gap between bands (e.g. Amber "3-4" next to Red "46" -- see find_rag_threshold_gap())
-    resolves to whichever of Green/Red sits on that side of Amber, on the assumption
-    that thresholds only get worse (or only get better) the further you go past the
-    defined range in one direction -- so a value past Amber on the Red side reads Red
-    even if it doesn't hit Red's own typed number, and likewise on the Green side.
-
-    Returns None -- meaning "can't be resolved automatically, ask the submitter" --
-    when actual_numeric is None, or green/amber/red_bounds aren't all available (no
-    unit_of_measure, narrative KRI, or a threshold that's blank/unparseable).
-    """
     if actual_numeric is None:
         return None
 
@@ -303,18 +294,19 @@ def resolve_rag_status(
 
 
 def validate_actual_value(label: str, value: str, unit_of_measure: Optional[str] = None) -> Optional[str]:
-    """Validate a single reported actual value against its KRI's unit_of_measure.
-
-    Same per-unit number formats as validate_threshold() (Percent needs %, Ratio up
-    to 3dp and no %, Days/Count whole numbers, PHP Amount up to 2dp), but unlike a
-    threshold this is one measurement, not a band: comparison operators (<, >, <=,
-    >=) and "-" ranges are not accepted here. A leading "-" is still read as a
-    negative number. "Status / Narrative" KRIs, and KRIs with no unit_of_measure set
-    yet, accept any free text.
-    """
     value = "".join(value.split())
 
     if not unit_of_measure or unit_of_measure == NARRATIVE_UNIT:
+        return None
+
+    if unit_of_measure == DURATION_UNIT:
+        if LEADING_OPERATOR_RE.match(value).group() or _split_range(value, DURATION_UNIT) != [value]:
+            return (
+                f"{label} must be a single duration ({UNIT_FORMAT_HINTS[DURATION_UNIT]}), "
+                "not a range or comparison."
+            )
+        if parse_duration_to_seconds(value) is None:
+            return f"{label} '{value}' doesn't match the expected format ({UNIT_FORMAT_HINTS[DURATION_UNIT]})."
         return None
 
     pattern = UNIT_NUMBER_PATTERNS.get(unit_of_measure, DEFAULT_NUMBER_PATTERN)
@@ -324,17 +316,13 @@ def validate_actual_value(label: str, value: str, unit_of_measure: Optional[str]
     return None
 
 
-def parse_reported_number(value: str) -> Optional[float]:
-    """Parse an already-validated Actual value string (validate_actual_value()) into a
-    plain float for comparison against catalog thresholds -- strips a trailing % and
-    any commas. Returns None for free-text/narrative values that aren't numeric.
-    """
+def parse_reported_number(value: str, unit_of_measure: Optional[str] = None) -> Optional[float]:
     if not value or not value.strip():
         return None
+    if unit_of_measure == DURATION_UNIT:
+        return parse_duration_to_seconds(value)
     cleaned = "".join(value.split()).replace("%", "").replace(",", "")
     try:
         return float(cleaned)
     except ValueError:
         return None
-
-

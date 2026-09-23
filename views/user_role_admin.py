@@ -49,7 +49,6 @@ department_options = fetch_lookup("department")
 
 
 def blocks_last_admin(target_email: str, new_role) -> bool:
-    """True if this change would remove the last ADMIN row from the table."""
     target = target_email.lower()
     if target not in admin_emails_in_table:
         return False
@@ -60,75 +59,84 @@ def blocks_last_admin(target_email: str, new_role) -> bool:
 tab_upsert, tab_remove = st.tabs(["Add / update a user", "Remove a user"])
 
 with tab_upsert:
+    # Role and department live outside st.form so changing role re-renders the
+    # department dropdown immediately (widgets inside a form do not update until submit).
     gen = form_gen("user_role_upsert")
-    with st.form(f"user_role_upsert_form_{gen}"):
-        banner = st.empty()
+    banner = st.empty()
+    bottom_banner = st.empty()
+    render_pending_banner("user_role_upsert", banner, bottom_banner)
 
-        email_input = st.text_input(
-            "User email", key=f"user_role_email_{gen}",
-            placeholder="firstname.lastname@paymaya.com",
-        )
-        role_input = st.selectbox("Role", VALID_ROLES, key=f"user_role_role_{gen}")
-        needs_dept = role_input in ("MAKER", "CHECKER")
-        if needs_dept:
+    email_input = st.text_input(
+        "User email",
+        key=f"user_role_email_{gen}",
+        placeholder="firstname.lastname@paymaya.com",
+    )
+    role_input = st.selectbox("Role", VALID_ROLES, key=f"user_role_role_{gen}")
+
+    needs_dept = role_input in ("MAKER", "CHECKER")
+    dept_input = None
+    if needs_dept:
+        if not department_options:
+            st.error(
+                "No departments are defined yet. Add departments under "
+                "**Administration → Lookup Values** first."
+            )
+        else:
             dept_input = st.selectbox(
                 "Department (required for Maker / Checker)",
                 department_options,
                 key=f"user_role_dept_{gen}",
             )
+    else:
+        st.caption("Admins are not scoped to a department.")
+
+    if st.button("Save user", type="primary", key=f"user_role_save_{gen}"):
+        errors = []
+        email_clean = email_input.strip()
+        if not email_clean:
+            errors.append("User email is required.")
         else:
-            dept_input = None
-            st.caption("Admins are not scoped to a department.")
+            email_error = validate_maya_email(email_clean)
+            if email_error:
+                errors.append(email_error)
+        if needs_dept and not department_options:
+            errors.append("Define at least one department in Lookup Values before assigning Maker/Checker.")
+        elif needs_dept and not dept_input:
+            errors.append("Department is required for MAKER and CHECKER.")
+        if email_clean and not errors and blocks_last_admin(email_clean, role_input):
+            errors.append(
+                f"'{email_clean}' is the only ADMIN in this table. Add another "
+                f"ADMIN before changing this one's role."
+            )
 
-        submitted = st.form_submit_button("Save", type="primary")
-        bottom_banner = st.empty()
-        render_pending_banner("user_role_upsert", banner, bottom_banner)
-
-        if submitted:
-            errors = []
-            email_clean = email_input.strip()
-            if not email_clean:
-                errors.append("User email is required.")
-            else:
-                email_error = validate_maya_email(email_clean)
-                if email_error:
-                    errors.append(email_error)
-            if needs_dept and not dept_input:
-                errors.append("Department is required for MAKER and CHECKER.")
-            if email_clean and not errors and blocks_last_admin(email_clean, role_input):
-                errors.append(
-                    f"'{email_clean}' is the only ADMIN in this table. Add another "
-                    f"ADMIN before changing this one's role."
-                )
-
-            if errors:
-                show_message("error", "\n".join(f"- {e}" for e in errors), banner, bottom_banner)
-            else:
-                user = current_user_email()
-                existing = roles_df[roles_df["user_email"].str.lower() == email_clean.lower()]
-                row = {
-                    "user_email": email_clean,
-                    "role": role_input,
-                    "department": dept_input if needs_dept else None,
-                    "assigned_by": existing.iloc[0]["assigned_by"] if not existing.empty else user,
-                    "assigned_at": existing.iloc[0]["assigned_at"] if not existing.empty else now_utc(),
-                    "updated_by": user,
-                    "updated_at": now_utc(),
-                }
-                run_statement(build_merge_upsert(TBL_USER_ROLES, row, key_columns=["user_email"]))
-                log_change(
-                    table_name="kri_user_roles",
-                    record_key=email_clean,
-                    action="UPDATE" if not existing.empty else "INSERT",
-                    changed_by=user,
-                    before=None if existing.empty else existing.iloc[0].to_dict(),
-                    after=row,
-                )
-                dept_msg = f", department **{dept_input}**" if needs_dept else ""
-                bump_and_rerun(
-                    "user_role_upsert",
-                    f"'{email_clean}' is now **{role_input}**{dept_msg}.",
-                )
+        if errors:
+            show_message("error", "\n".join(f"- {e}" for e in errors), banner, bottom_banner)
+        else:
+            user = current_user_email()
+            existing = roles_df[roles_df["user_email"].str.lower() == email_clean.lower()]
+            row = {
+                "user_email": email_clean,
+                "role": role_input,
+                "department": dept_input if needs_dept else None,
+                "assigned_by": existing.iloc[0]["assigned_by"] if not existing.empty else user,
+                "assigned_at": existing.iloc[0]["assigned_at"] if not existing.empty else now_utc(),
+                "updated_by": user,
+                "updated_at": now_utc(),
+            }
+            run_statement(build_merge_upsert(TBL_USER_ROLES, row, key_columns=["user_email"]))
+            log_change(
+                table_name="kri_user_roles",
+                record_key=email_clean,
+                action="UPDATE" if not existing.empty else "INSERT",
+                changed_by=user,
+                before=None if existing.empty else existing.iloc[0].to_dict(),
+                after=row,
+            )
+            dept_msg = f", department **{dept_input}**" if needs_dept else ""
+            bump_and_rerun(
+                "user_role_upsert",
+                f"'{email_clean}' is now **{role_input}**{dept_msg}.",
+            )
 
 with tab_remove:
     if roles_df.empty:

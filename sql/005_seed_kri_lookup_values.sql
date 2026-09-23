@@ -40,6 +40,7 @@ USING (
         ('unit_of_measure', 'PHP Amount', 4),
         ('unit_of_measure', 'Ratio', 5),
         ('unit_of_measure', 'Status / Narrative', 6),
+        ('unit_of_measure', 'Duration (H:MM:SS)', 7),
 
         -- risk_category, cleaned from the KRIs sheet
         ('risk_category', 'People Risk', 1),

@@ -71,6 +71,7 @@ Green/Amber/Red threshold validation in `utils/validation.py` depends on the KRI
 | Days | whole number, no decimal | `60`, `60-65` |
 | PHP Amount | decimal, up to 2 dp, no `%` | `1000000.00` |
 | Count | whole number, no decimal | `5` |
+| Duration (H:MM:SS) | elapsed time `H:MM:SS` (minutes/seconds 00–59); stored/compared as total seconds | `1:30:00`, `0:00:00-0:30:00`, `>=1:00:00` |
 | Status / Narrative | free text | `On-time` |
 
 Percent form was chosen over decimal form (`0.75`) for Percent-unit thresholds because

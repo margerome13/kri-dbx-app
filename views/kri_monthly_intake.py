@@ -136,7 +136,9 @@ actual_value_text = st.text_input(
     disabled=read_only,
 )
 
-actual_numeric = parse_reported_number(actual_value_text) if actual_value_text.strip() else None
+actual_numeric = (
+    parse_reported_number(actual_value_text, kri_unit) if actual_value_text.strip() else None
+)
 green_bounds = parse_threshold_bounds(kri_row["threshold_green"], kri_unit)
 amber_bounds = parse_threshold_bounds(kri_row["threshold_amber"], kri_unit)
 red_bounds = parse_threshold_bounds(kri_row["threshold_red"], kri_unit)
