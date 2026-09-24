@@ -1,15 +1,17 @@
 """RCO dashboard aggregations over submission history (pandas in, counts/lists out).
 
 RCO-confirmed rules (see docs/design/rco-dashboard-signals.md):
-- Trending Amber: last 3 consecutive reporting periods per KRI are all Amber (same
-  rule for monthly, quarterly, etc. — three periods on that KRI's timeline).
+- Trending Amber / Persistent Red: last 3 consecutive reporting periods per KRI are
+  all Amber or all Red (same rule for all catalog frequencies).
 - Return to Green: latest period Green, prior period Amber or Red.
+- Missing submissions: active catalog KRIs with no submission for the selected period.
 """
 from __future__ import annotations
 
 import pandas as pd
 
 CONSECUTIVE_AMBER_PERIODS = 3
+CONSECUTIVE_RED_PERIODS = 3
 
 
 def _kri_key(df: pd.DataFrame) -> pd.DataFrame:
@@ -60,10 +62,24 @@ def trending_amber_kris(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def departments_with_trending_amber(trending_df: pd.DataFrame) -> int:
-    if trending_df.empty:
+def persistent_red_kris(df: pd.DataFrame) -> pd.DataFrame:
+    return kris_with_trailing_rag(
+        df, periods=CONSECUTIVE_RED_PERIODS, rag="Red"
+    )
+
+
+def departments_with_signal(signal_df: pd.DataFrame) -> int:
+    if signal_df.empty:
         return 0
-    return int(trending_df["department"].nunique())
+    return int(signal_df["department"].nunique())
+
+
+def departments_with_trending_amber(trending_df: pd.DataFrame) -> int:
+    return departments_with_signal(trending_df)
+
+
+def departments_with_persistent_red(persistent_df: pd.DataFrame) -> int:
+    return departments_with_signal(persistent_df)
 
 
 def recovery_to_green_kris(df: pd.DataFrame) -> pd.DataFrame:
@@ -95,6 +111,37 @@ def recovery_to_green_kris(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def departments_with_recovery(recovery_df: pd.DataFrame) -> int:
-    if recovery_df.empty:
-        return 0
-    return int(recovery_df["department"].nunique())
+    return departments_with_signal(recovery_df)
+
+
+def missing_submissions(
+    catalog_df: pd.DataFrame,
+    period_submissions_df: pd.DataFrame,
+    *,
+    official_only: bool,
+) -> pd.DataFrame:
+    """Active catalog KRIs with no row for the selected reporting period."""
+    if catalog_df.empty:
+        return pd.DataFrame()
+
+    if period_submissions_df.empty:
+        submitted_ids: set = set()
+    elif official_only:
+        submitted_ids = set(
+            period_submissions_df.loc[
+                period_submissions_df["workflow_status"] == "Approved", "kri_id"
+            ].astype(int)
+        )
+    else:
+        submitted_ids = set(
+            period_submissions_df.loc[
+                period_submissions_df["workflow_status"] != "Rejected", "kri_id"
+            ].astype(int)
+        )
+
+    missing = catalog_df[~catalog_df["kri_id"].astype(int).isin(submitted_ids)].copy()
+    return missing
+
+
+def departments_with_missing(missing_df: pd.DataFrame) -> int:
+    return departments_with_signal(missing_df)
