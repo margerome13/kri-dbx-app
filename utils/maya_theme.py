@@ -22,6 +22,7 @@ GRADIENT_AMBER = f"linear-gradient(135deg, {MANGO_YELLOW} 0%, {PEACH} 100%)"
 GRADIENT_RED = f"linear-gradient(135deg, {PEACH} 0%, {STRAWBERRY_RED} 100%)"
 GRADIENT_BLUE = f"linear-gradient(135deg, {ICE_BLUE} 0%, {OCEAN_BLUE} 100%)"
 GRADIENT_RECOVERY = f"linear-gradient(135deg, {SEAFOAM} 0%, {MONEY_GREEN} 100%)"
+GRADIENT_PENDING = f"linear-gradient(135deg, {ELECTRIC_PURPLE} 0%, {DEEP_BLUE} 100%)"
 
 
 def dashboard_styles() -> str:

@@ -1,22 +1,19 @@
+from datetime import date
+
 import streamlit as st
 
 from config.user_roles import get_user_role
 from utils.access import require_page_access
-from utils.audit import log_change
 from utils.db import (
     TBL_CATALOG,
     TBL_SUBMISSIONS,
-    build_update,
     current_user_email,
-    now_utc,
+    fetch_lookup,
     run_query,
-    run_statement,
     sql_literal,
 )
 from utils.department_scope import catalog_department_clause, is_global_viewer, require_scoped_department
-from utils.forms import bump_and_rerun, render_pending_banner, show_message
-
-RAG_EMOJI = {"Green": "🟢", "Amber": "🟠", "Red": "🔴"}
+from utils.review_actions import render_approve_reject_forms, render_submission_summary
 
 HISTORY_SELECT = """
     s.submission_id, s.reporting_period, s.actual_value_text, s.rag_status,
@@ -29,13 +26,20 @@ require_page_access("review_submissions")
 
 user = current_user_email()
 role = get_user_role(user)
+is_admin = is_global_viewer(user)
 
 st.header("Review Submitted KRIs", divider=True)
-st.write(
-    "Approve or reject KRI submissions from your department. You cannot edit the "
-    "Maker's value or remarks — only approve, reject with a reason, or review your "
-    "past decisions."
-)
+if is_admin:
+    st.write(
+        "RCO program view: monitor the **program queue** across all departments, act on "
+        "**pending** submissions, or review your own approval/rejection history."
+    )
+else:
+    st.write(
+        "Approve or reject KRI submissions from your department. You cannot edit the "
+        "Maker's value or remarks — only approve, reject with a reason, or review your "
+        "past decisions."
+    )
 
 if role == "CHECKER":
     require_scoped_department(user)
@@ -43,11 +47,134 @@ if role == "CHECKER":
 dept_clause = catalog_department_clause(user, alias="c")
 user_lit = sql_literal(user)
 
-tab_pending, tab_approved, tab_rejected = st.tabs(
-    ["Pending review", "My approvals", "My rejections"]
-)
+tab_labels = ["Program queue", "Pending review", "My approvals", "My rejections"] if is_admin else [
+    "Pending review",
+    "My approvals",
+    "My rejections",
+]
+tabs = st.tabs(tab_labels)
+tab_by_name = dict(zip(tab_labels, tabs))
 
-with tab_pending:
+if is_admin:
+    with tab_by_name["Program queue"]:
+        entities = fetch_lookup("entity")
+        departments = fetch_lookup("department")
+        f1, f2, f3, f4, f5 = st.columns(5)
+        with f1:
+            pq_entity = st.selectbox("Entity", ["All"] + entities, key="pq_entity")
+        with f2:
+            pq_dept = st.selectbox("Department", ["All"] + departments, key="pq_dept")
+        with f3:
+            pq_workflow = st.selectbox(
+                "Workflow status",
+                ["Submitted", "Approved", "Rejected", "All"],
+                key="pq_workflow",
+            )
+        with f4:
+            pq_lookback = st.selectbox(
+                "Submitted in last",
+                [3, 6, 12, 24],
+                index=1,
+                format_func=lambda m: f"{m} months",
+                key="pq_lookback",
+            )
+        with f5:
+            pq_period_only = st.checkbox("One reporting period", key="pq_period_only")
+        pq_period = None
+        if pq_period_only:
+            pq_period = st.date_input(
+                "Reporting period",
+                value=date.today().replace(day=1),
+                key="pq_period",
+            )
+            pq_period = date(pq_period.year, pq_period.month, 1)
+
+        pq_clauses = [
+            f"s.submitted_at >= add_months(current_timestamp(), -{int(pq_lookback)})",
+        ]
+        if pq_entity != "All":
+            pq_clauses.append(f"c.entity = {sql_literal(pq_entity)}")
+        if pq_dept != "All":
+            pq_clauses.append(f"c.department = {sql_literal(pq_dept)}")
+        if pq_workflow != "All":
+            pq_clauses.append(f"s.workflow_status = {sql_literal(pq_workflow)}")
+        if pq_period is not None:
+            pq_clauses.append(f"s.reporting_period = {sql_literal(pq_period)}")
+        pq_where = " AND ".join(pq_clauses)
+
+        program_df = run_query(
+            f"SELECT {HISTORY_SELECT} "
+            f"FROM {TBL_SUBMISSIONS} s "
+            f"INNER JOIN {TBL_CATALOG} c ON s.kri_id = c.kri_id "
+            f"WHERE {pq_where} "
+            f"ORDER BY CASE s.workflow_status WHEN 'Submitted' THEN 0 WHEN 'Rejected' THEN 1 ELSE 2 END, "
+            f"s.submitted_at DESC, c.department, c.kri_title"
+        )
+
+        pending_n = int((program_df["workflow_status"] == "Submitted").sum()) if not program_df.empty else 0
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Pending approval (in view)", pending_n)
+        m2.metric("Rows in queue", len(program_df))
+        m3.metric(
+            "Departments with pending",
+            int(program_df.loc[program_df["workflow_status"] == "Submitted", "department"].nunique())
+            if not program_df.empty
+            else 0,
+        )
+
+        if program_df.empty:
+            st.info("No submissions match these filters.")
+        else:
+            st.dataframe(
+                program_df[
+                    [
+                        "workflow_status",
+                        "submitted_at",
+                        "entity",
+                        "department",
+                        "kri_title",
+                        "reporting_period",
+                        "actual_value_text",
+                        "rag_status",
+                        "submitted_by",
+                        "approved_by",
+                    ]
+                ].rename(
+                    columns={
+                        "workflow_status": "Status",
+                        "submitted_at": "Submitted at",
+                        "kri_title": "KRI",
+                        "reporting_period": "Period",
+                        "actual_value_text": "Value",
+                        "rag_status": "RAG",
+                        "submitted_by": "Maker",
+                        "approved_by": "Approved by",
+                    }
+                ),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+            submitted_only = program_df[program_df["workflow_status"] == "Submitted"]
+            if submitted_only.empty:
+                st.caption("No **Submitted** rows in this view — adjust filters or use **Pending review**.")
+            else:
+                st.subheader("Act on a pending submission", divider="gray")
+                labels = [
+                    f"{r['department']} · {r['kri_title']} · {r['reporting_period']}"
+                    for _, r in submitted_only.iterrows()
+                ]
+                pick = st.selectbox(
+                    "Choose submission",
+                    range(len(labels)),
+                    format_func=lambda i: labels[i],
+                    key="pq_action_choice",
+                )
+                action_row = submitted_only.iloc[pick]
+                render_submission_summary(action_row)
+                render_approve_reject_forms(action_row, user, key_prefix="pq")
+
+with tab_by_name["Pending review"]:
     queue_df = run_query(
         f"SELECT {HISTORY_SELECT} "
         f"FROM {TBL_SUBMISSIONS} s "
@@ -59,7 +186,8 @@ with tab_pending:
     if queue_df.empty:
         st.success("No submissions waiting for review.")
     else:
-        st.caption(f"{len(queue_df)} submission(s) with status **Submitted**.")
+        scope = "all departments" if is_admin else "your department"
+        st.caption(f"{len(queue_df)} submission(s) with status **Submitted** ({scope}).")
         labels = [
             f"{row['entity']} · {row['department']} · {row['kri_title']} · "
             f"{row['reporting_period']} (by {row['submitted_by']})"
@@ -72,106 +200,10 @@ with tab_pending:
             key="review_queue_choice",
         )
         row = queue_df.iloc[choice]
+        render_submission_summary(row)
+        render_approve_reject_forms(row, user, key_prefix="pending")
 
-        st.markdown(
-            f"**KRI:** {row['kri_title']}  \n"
-            f"**Entity / department:** {row['entity']} / {row['department']}  \n"
-            f"**Reporting month:** {row['reporting_period']}  \n"
-            f"**Submitted by:** {row['submitted_by']} at {row['submitted_at']}"
-        )
-        st.markdown(
-            f"**Actual value:** {row['actual_value_text']}  \n"
-            f"**RAG:** {RAG_EMOJI.get(row['rag_status'], '')} {row['rag_status']}  \n"
-            f"**Maker remarks:** {row['remarks'] or '—'}"
-        )
-
-        col_approve, col_reject = st.columns(2)
-
-        with col_approve:
-            with st.form("review_approve_form"):
-                approve_banner = st.empty()
-                approve_notes = st.text_area(
-                    "Checker note (optional on approve)",
-                    height=80,
-                    key="review_approve_notes",
-                )
-                approve_clicked = st.form_submit_button("Approve", type="primary")
-                approve_bottom = st.empty()
-                render_pending_banner("review_approve", approve_banner, approve_bottom)
-                if approve_clicked:
-                    ts = now_utc()
-                    after = {
-                        "workflow_status": "Approved",
-                        "review_notes": approve_notes.strip() or None,
-                        "approved_by": user,
-                        "approved_at": ts,
-                        "updated_by": user,
-                        "updated_at": ts,
-                    }
-                    run_statement(
-                        build_update(
-                            TBL_SUBMISSIONS,
-                            after,
-                            {"submission_id": row["submission_id"]},
-                        )
-                    )
-                    log_change(
-                        table_name="kri_monthly_submissions",
-                        record_key=row["submission_id"],
-                        action="UPDATE",
-                        changed_by=user,
-                        before=row.to_dict(),
-                        after={**row.to_dict(), **after},
-                    )
-                    bump_and_rerun("review_approve", "Submission approved.", bump=False)
-
-        with col_reject:
-            with st.form("review_reject_form"):
-                reject_banner = st.empty()
-                reject_notes = st.text_area(
-                    "Rejection reason (required)",
-                    height=80,
-                    key="review_reject_notes",
-                )
-                reject_clicked = st.form_submit_button("Reject", type="primary")
-                reject_bottom = st.empty()
-                render_pending_banner("review_reject", reject_banner, reject_bottom)
-                if reject_clicked:
-                    if not reject_notes.strip():
-                        show_message(
-                            "error",
-                            "A rejection reason is required.",
-                            reject_banner,
-                            reject_bottom,
-                        )
-                    else:
-                        ts = now_utc()
-                        after = {
-                            "workflow_status": "Rejected",
-                            "review_notes": reject_notes.strip(),
-                            "approved_by": None,
-                            "approved_at": None,
-                            "updated_by": user,
-                            "updated_at": ts,
-                        }
-                        run_statement(
-                            build_update(
-                                TBL_SUBMISSIONS,
-                                after,
-                                {"submission_id": row["submission_id"]},
-                            )
-                        )
-                        log_change(
-                            table_name="kri_monthly_submissions",
-                            record_key=row["submission_id"],
-                            action="UPDATE",
-                            changed_by=user,
-                            before=row.to_dict(),
-                            after={**row.to_dict(), **after},
-                        )
-                        bump_and_rerun("review_reject", "Submission rejected.", bump=False)
-
-with tab_approved:
+with tab_by_name["My approvals"]:
     lookback = st.selectbox(
         "Show approvals from the last",
         [3, 6, 12, 24],
@@ -224,7 +256,7 @@ with tab_approved:
             hide_index=True,
         )
 
-with tab_rejected:
+with tab_by_name["My rejections"]:
     lookback_r = st.selectbox(
         "Show rejections from the last",
         [3, 6, 12, 24],
@@ -235,7 +267,7 @@ with tab_rejected:
     rejected_df = run_query(
         f"SELECT {HISTORY_SELECT} "
         f"FROM {TBL_SUBMISSIONS} s "
-        f"INNER JOIN {TBL_CATALOG} c ON s.kri_id = c.kri_id "
+        f"INNER JOIN {TBL_CATALOG} c ON c.kri_id = c.kri_id "
         f"WHERE s.workflow_status = 'Rejected' "
         f"AND LOWER(s.updated_by) = LOWER({user_lit}) "
         f"AND s.updated_at >= add_months(current_timestamp(), -{int(lookback_r)}) "
@@ -276,9 +308,3 @@ with tab_rejected:
             use_container_width=True,
             hide_index=True,
         )
-
-if is_global_viewer(user):
-    st.caption(
-        "As **ADMIN**, pending review shows all departments; approval/rejection history "
-        "shows only decisions recorded under your login."
-    )

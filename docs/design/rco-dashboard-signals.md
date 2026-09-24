@@ -26,6 +26,11 @@
 - **Data:** Respects the **Approved-only** toggle when checked (Submitted-only rows do not count as submitted). Rejected rows never count.
 - **Note:** RCO picks the period to close (monthly close vs quarter-end month for quarterly KRIs). The app does not auto-infer quarter-end dates from `frequency` yet.
 
+## Submission workflow (dashboard → review)
+
+- **Pending approval** on KRI Overview counts rows with `workflow_status = Submitted` (respects entity/department filters).
+- **Open program queue** navigates to **Review → Program queue** (ADMIN only): all departments, filterable oversight table with approve/reject on pending rows.
+
 ## Not in scope (unless RCO revisits)
 
 - Frequency-aware calendar grids (e.g. auto-due dates from `frequency` without a period picker).

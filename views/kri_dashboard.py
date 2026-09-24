@@ -21,9 +21,9 @@ from utils.maya_theme import (
     GRADIENT_BLUE,
     GRADIENT_MINT_MONEY,
     GRADIENT_MINT_PURPLE,
+    GRADIENT_PENDING,
     GRADIENT_RECOVERY,
     GRADIENT_RED,
-    ONLINE_WINE,
     dashboard_styles,
     metric_card_html,
 )
@@ -126,6 +126,44 @@ trending_df = trending_amber_kris(alert_df)
 persistent_df = persistent_red_kris(alert_df)
 recovery_df = recovery_to_green_kris(alert_df)
 missing_df = missing_submissions(catalog_df, period_submissions_df, official_only=official_only)
+
+pending_clauses = ["s.workflow_status = 'Submitted'"]
+if entity_filter != "All":
+    pending_clauses.append(f"c.entity = {sql_literal(entity_filter)}")
+if department_filter != "All":
+    pending_clauses.append(f"c.department = {sql_literal(department_filter)}")
+pending_count_df = run_query(
+    f"SELECT COUNT(*) AS n FROM {TBL_SUBMISSIONS} s "
+    f"JOIN {TBL_CATALOG} c ON c.kri_id = s.kri_id "
+    f"WHERE {' AND '.join(pending_clauses)}"
+)
+pending_approval_count = int(pending_count_df.iloc[0]["n"])
+
+st.markdown(
+    '<div class="maya-dash-section" style="background:'
+    + GRADIENT_PENDING
+    + '; color: #ffffff;">Submission workflow</div>',
+    unsafe_allow_html=True,
+)
+wf1, wf2 = st.columns([3, 1])
+with wf1:
+    wf1.markdown(
+        metric_card_html(
+            "Pending approval (Submitted)",
+            pending_approval_count,
+            GRADIENT_PENDING,
+            "#ffffff",
+        ),
+        unsafe_allow_html=True,
+    )
+with wf2:
+    st.caption("RCO: open the program queue to approve or reject.")
+    if st.button("Open program queue", type="primary", use_container_width=True):
+        st.switch_page("views/kri_review_submissions.py")
+st.caption(
+    "Uses current **Entity** / **Department** filters above. Manage the full queue under "
+    "**Review → Program queue**."
+)
 
 st.markdown(
     '<div class="maya-dash-section">RCO Framework Signals</div>',
