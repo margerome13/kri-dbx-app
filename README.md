@@ -261,6 +261,7 @@ backfill (see below) hasn't been loaded into the live tables yet.
 
 - **[Maker–checker monthly submissions & department-scoped roles](docs/design/maker-checker-department-scope.md)** — approved workflow, schema deltas (`009`/`010`), page split (Monthly Intake vs Review Submissions), and implementation checklist. App code on `main` may still reflect the pre-maker–checker behavior until that checklist is completed.
 - **[RCO dashboard framework signals](docs/design/rco-dashboard-signals.md)** — Trending Amber, persistent Red (3 consecutive periods per KRI), Return to Green, and missing submissions for a selected reporting period.
+- **[Entity and department](docs/design/entity-and-department.md)** — lookup taxonomy vs catalog; entity × department behavior on Submit KRI and roles.
 
 ## Other tables you may want later (not built here)
 

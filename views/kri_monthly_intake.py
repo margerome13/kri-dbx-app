@@ -55,22 +55,20 @@ col1, col2 = st.columns(2)
 with col1:
     entity = st.selectbox("Entity", entities)
 with col2:
-    dept_filter = f" AND department = {sql_literal(user_dept)}" if user_dept else ""
-    departments_df = run_query(
-        f"SELECT DISTINCT department FROM {TBL_CATALOG} "
-        f"WHERE entity = {sql_literal(entity)} AND kri_status = 'Active'{dept_filter} "
-        f"ORDER BY department"
-    )
-    dept_list = departments_df["department"].tolist() if not departments_df.empty else []
     if user_dept:
         department = user_dept
         st.text_input("Department", value=department, disabled=True)
     else:
-        department = st.selectbox("Department", dept_list)
+        department = st.selectbox("Department", fetch_lookup("department"))
+
+st.caption(
+    "Departments come from **Lookup Values** (standard names). KRIs shown below are "
+    f"from the catalog for **{entity}** + this department — add a row in "
+    "**Administration → Add a KRI** if a new department has no KRIs yet."
+)
 
 if not department:
-    st.info("No active KRIs are defined yet for this entity/department. Add one in "
-             "**Administration → Add a KRI** first.")
+    st.info("Select a department to continue.")
     st.stop()
 
 kris_df = run_query(
