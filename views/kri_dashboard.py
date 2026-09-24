@@ -16,8 +16,21 @@ from utils.dashboard_metrics import (
     trending_amber_kris,
 )
 from utils.db import TBL_CATALOG, TBL_SUBMISSIONS, fetch_lookup, run_query, sql_literal
+from utils.maya_theme import (
+    GRADIENT_AMBER,
+    GRADIENT_BLUE,
+    GRADIENT_MINT_MONEY,
+    GRADIENT_MINT_PURPLE,
+    GRADIENT_RECOVERY,
+    GRADIENT_RED,
+    ONLINE_WINE,
+    dashboard_styles,
+    metric_card_html,
+)
 
 require_page_access("dashboard")
+
+st.markdown(dashboard_styles(), unsafe_allow_html=True)
 
 st.header("KRI Overview", divider=True)
 st.write(
@@ -114,7 +127,10 @@ persistent_df = persistent_red_kris(alert_df)
 recovery_df = recovery_to_green_kris(alert_df)
 missing_df = missing_submissions(catalog_df, period_submissions_df, official_only=official_only)
 
-st.subheader("RCO framework signals", divider="gray")
+st.markdown(
+    '<div class="maya-dash-section">RCO Framework Signals</div>',
+    unsafe_allow_html=True,
+)
 st.caption(
     f"**Trending Amber / Persistent Red:** **{CONSECUTIVE_AMBER_PERIODS} consecutive "
     f"reporting periods** for the same KRI, all Amber or all Red. **Return to Green:** "
@@ -123,16 +139,57 @@ st.caption(
 )
 
 r1c1, r1c2, r1c3, r1c4 = st.columns(4)
-r1c1.metric("Departments — trending Amber", departments_with_trending_amber(trending_df))
-r1c2.metric("KRIs — trending Amber", len(trending_df))
-r1c3.metric("Departments — return to Green", departments_with_recovery(recovery_df))
-r1c4.metric("KRIs — return to Green", len(recovery_df))
+r1c1.markdown(
+    metric_card_html(
+        "Departments — trending Amber",
+        departments_with_trending_amber(trending_df),
+        GRADIENT_AMBER,
+    ),
+    unsafe_allow_html=True,
+)
+r1c2.markdown(
+    metric_card_html("KRIs — trending Amber", len(trending_df), GRADIENT_AMBER),
+    unsafe_allow_html=True,
+)
+r1c3.markdown(
+    metric_card_html(
+        "Departments — return to Green",
+        departments_with_recovery(recovery_df),
+        GRADIENT_RECOVERY,
+    ),
+    unsafe_allow_html=True,
+)
+r1c4.markdown(
+    metric_card_html("KRIs — return to Green", len(recovery_df), GRADIENT_RECOVERY),
+    unsafe_allow_html=True,
+)
 
 r2c1, r2c2, r2c3, r2c4 = st.columns(4)
-r2c1.metric("Departments — persistent Red", departments_with_persistent_red(persistent_df))
-r2c2.metric("KRIs — persistent Red", len(persistent_df))
-r2c3.metric("Departments — missing submission", departments_with_missing(missing_df))
-r2c4.metric("KRIs — missing submission", len(missing_df))
+r2c1.markdown(
+    metric_card_html(
+        "Departments — persistent Red",
+        departments_with_persistent_red(persistent_df),
+        GRADIENT_RED,
+        "#ffffff",
+    ),
+    unsafe_allow_html=True,
+)
+r2c2.markdown(
+    metric_card_html("KRIs — persistent Red", len(persistent_df), GRADIENT_RED, "#ffffff"),
+    unsafe_allow_html=True,
+)
+r2c3.markdown(
+    metric_card_html(
+        "Departments — missing submission",
+        departments_with_missing(missing_df),
+        GRADIENT_BLUE,
+    ),
+    unsafe_allow_html=True,
+)
+r2c4.markdown(
+    metric_card_html("KRIs — missing submission", len(missing_df), GRADIENT_BLUE),
+    unsafe_allow_html=True,
+)
 
 exp1, exp2 = st.columns(2)
 with exp1:
@@ -180,11 +237,30 @@ if df.empty:
 else:
     latest = df.sort_values("reporting_period").groupby(["entity", "department", "kri_title"]).tail(1)
 
-    st.subheader("Latest RAG snapshot", divider="gray")
+    st.markdown(
+        f'<div class="maya-dash-section" style="background:{GRADIENT_MINT_PURPLE};">'
+        f"Latest RAG Snapshot</div>",
+        unsafe_allow_html=True,
+    )
     c1, c2, c3 = st.columns(3)
-    c1.metric("🟢 Green (latest)", int((latest["rag_status"] == "Green").sum()))
-    c2.metric("🟠 Amber (latest)", int((latest["rag_status"] == "Amber").sum()))
-    c3.metric("🔴 Red (latest)", int((latest["rag_status"] == "Red").sum()))
+    green_n = int((latest["rag_status"] == "Green").sum())
+    amber_n = int((latest["rag_status"] == "Amber").sum())
+    red_n = int((latest["rag_status"] == "Red").sum())
+    c1.markdown(
+        f'<div class="maya-rag-card" style="background:{GRADIENT_MINT_MONEY};">'
+        f"<div>Green (latest)</div><div class=\"n\">{green_n}</div></div>",
+        unsafe_allow_html=True,
+    )
+    c2.markdown(
+        f'<div class="maya-rag-card" style="background:{GRADIENT_AMBER};">'
+        f"<div>Amber (latest)</div><div class=\"n\">{amber_n}</div></div>",
+        unsafe_allow_html=True,
+    )
+    c3.markdown(
+        f'<div class="maya-rag-card" style="background:{GRADIENT_RED}; color:#fff;">'
+        f"<div>Red (latest)</div><div class=\"n\">{red_n}</div></div>",
+        unsafe_allow_html=True,
+    )
 
     st.dataframe(
         latest[

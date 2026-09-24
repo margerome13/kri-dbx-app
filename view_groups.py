@@ -5,8 +5,8 @@ from config.user_roles import pages_for_role, get_user_role
 PAGE_REGISTRY = [
     {
         "key": "monthly_intake",
-        "group": "Monthly Intake",
-        "label": "Submit / Edit Monthly KRI",
+        "group": "Submit KRI",
+        "label": "Submit / Edit KRI Value",
         "page": "views/kri_monthly_intake.py",
         "icon": ":material/edit_note:",
     },

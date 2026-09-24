@@ -170,8 +170,8 @@ directly into SQL strings.
 
 | Role | Sees | Data scope |
 |---|---|---|
-| ADMIN | Monthly Intake, Review Submitted KRIs, KRI Overview, Add a KRI, Manage Existing KRIs, Lookup Values, User Role Manager | All departments |
-| MAKER | Monthly Intake only | Assigned **department** only (`kri_user_roles.department`) |
+| ADMIN | Submit KRI, Review Submitted KRIs, KRI Overview, Add a KRI, Manage Existing KRIs, Lookup Values, User Role Manager | All departments |
+| MAKER | Submit KRI only | Assigned **department** only (`kri_user_roles.department`) |
 | CHECKER | Review Submitted KRIs only (approve / reject with reason) | Assigned **department** only |
 | *(unlisted)* | Access Denied | — |
 

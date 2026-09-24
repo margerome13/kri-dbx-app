@@ -38,11 +38,11 @@ require_page_access("monthly_intake")
 user = current_user_email()
 role = get_user_role(user)
 
-st.header("Submit / Edit Monthly KRI", divider=True)
+st.header("Submit / Edit KRI Value", divider=True)
 st.write(
-    "Standardized monthly intake for department Key Risk Indicators. Select your KRI "
-    "and reporting month below — if a submission already exists for that month it "
-    "will load for editing instead of creating a duplicate."
+    "Submit or update a KRI value for your department's reporting period. Select your "
+    "KRI and period below — if a submission already exists it will load for editing "
+    "instead of creating a duplicate."
 )
 
 if role == "MAKER":
