@@ -9,13 +9,11 @@
 
 Adding a department in **Lookup Values** alone does **not** create KRIs. RCO must **Add a KRI** for each `(entity, department)` combination that should report.
 
-## Why Submit KRI did not show “Data Governance”
+## Submit KRI department list
 
-Previously, the department dropdown on Submit KRI (for Admins) listed only departments that already had **Active** rows in `kri_catalog` for the selected **entity**. A new lookup value with no catalog rows never appeared.
+**Submit KRI** only shows departments that already have at least one **Active** KRI in `kri_catalog` for the selected **entity** (Admins: dropdown; Makers/Checkers with a scoped role: fixed department from User Role Manager, same catalog gate when loading KRIs).
 
-**Now:** Admins pick department from **Lookup Values**; the KRI list still comes from the catalog. If there are no Active KRIs for that entity + department, the page says so and points to **Add a KRI**.
-
-**Makers** still see a fixed department from **User Role Manager** (not the full lookup list).
+A department added in **Lookup Values** alone does not appear on Submit KRI until RCO **Add a KRI** for that entity + department.
 
 ## Entity × department
 
@@ -28,7 +26,7 @@ Previously, the department dropdown on Submit KRI (for Admins) listed only depar
 | Area | Behavior |
 |------|----------|
 | **Add a KRI** | Any lookup department × any lookup entity. |
-| **Submit KRI** | Entity + department select which **catalog** KRIs load. |
+| **Submit KRI** | Department choices (Admin) and KRIs loaded only from **catalog** for entity + department; lookup-only departments cannot submit yet. |
 | **User Role Manager** | One **department** string per Maker/Checker (no entity). A Maker with “Data Governance” may submit for that department under **whichever entity** has Active KRIs — they choose entity on the form. |
 | **Dashboard / review filters** | Filter by entity and/or department string; same global department names. |
 
