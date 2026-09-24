@@ -228,6 +228,7 @@ on the affected user's very next click, with no cache to clear or TTL to wait ou
    automatically. Grant the app's service principal:
    - `USE CATALOG` on `dg_dev`, `USE SCHEMA` on `dg_dev.sandbox`
    - `SELECT, MODIFY` on all five tables above
+   - `SELECT` on `dba_prod.data_eng.databricks_group_users_view` (User Role Manager email list; `is_direct_group = true`)
    - `CAN USE` on the attached SQL warehouse
    Role-based access (see **Roles** above) depends on `utils/db.py`'s
    `current_user_email()` correctly reading the signed-in user's email from the

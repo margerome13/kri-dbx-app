@@ -3,6 +3,12 @@ import streamlit as st
 from config.user_roles import BOOTSTRAP_ADMINS, VALID_ROLES
 from utils.access import require_page_access
 from utils.audit import log_change
+from utils.databricks_users import (
+    allowed_email_set,
+    fetch_direct_group_user_emails,
+    validate_databricks_group_email,
+    DATABRICKS_GROUP_USERS_VIEW,
+)
 from utils.db import (
     TBL_USER_ROLES,
     build_delete,
@@ -14,15 +20,14 @@ from utils.db import (
     run_statement,
 )
 from utils.forms import bump_and_rerun, form_gen, render_pending_banner, show_message
-from utils.validation import validate_maya_email
 
 require_page_access("user_role_admin")
 
 st.header("User Role Manager", divider=True)
 st.write(
     "Control who can use this app and what they can see. **MAKER** and **CHECKER** "
-    "must have a department — they only see that department's KRIs. Changes take "
-    "effect immediately."
+    "must have a department — they only see that department's KRIs. User email must "
+    "be a direct member in the Databricks group directory."
 )
 
 if BOOTSTRAP_ADMINS:
@@ -32,6 +37,9 @@ if BOOTSTRAP_ADMINS:
         + " will always have ADMIN access regardless of what's in this table, so "
         "the team can never be fully locked out."
     )
+
+group_emails, group_load_error = fetch_direct_group_user_emails()
+allowed = allowed_email_set(group_emails)
 
 roles_df = run_query(
     f"SELECT user_email, role, department, assigned_by, assigned_at, updated_by, updated_at "
@@ -59,18 +67,43 @@ def blocks_last_admin(target_email: str, new_role) -> bool:
 tab_upsert, tab_remove = st.tabs(["Add / update a user", "Remove a user"])
 
 with tab_upsert:
-    # Role and department live outside st.form so changing role re-renders the
-    # department dropdown immediately (widgets inside a form do not update until submit).
     gen = form_gen("user_role_upsert")
     banner = st.empty()
     bottom_banner = st.empty()
     render_pending_banner("user_role_upsert", banner, bottom_banner)
 
-    email_input = st.text_input(
-        "User email",
-        key=f"user_role_email_{gen}",
-        placeholder="firstname.lastname@paymaya.com",
+    if group_load_error:
+        st.error(group_load_error)
+        st.stop()
+
+    st.caption(
+        f"Email list from `{DATABRICKS_GROUP_USERS_VIEW}` "
+        f"(`is_direct_group = true`, {len(group_emails)} accounts)."
     )
+
+    # Keep existing role rows selectable even if they drop out of the group view later.
+    existing_emails = roles_df["user_email"].tolist() if not roles_df.empty else []
+    email_options = sorted(set(group_emails) | set(existing_emails), key=str.lower)
+
+    email_filter = st.text_input(
+        "Filter emails",
+        key=f"user_role_email_filter_{gen}",
+        placeholder="Type to narrow the list…",
+    )
+    filter_lower = email_filter.strip().lower()
+    filtered_emails = [
+        e for e in email_options if not filter_lower or filter_lower in e.lower()
+    ]
+    if not filtered_emails:
+        st.warning("No emails match that filter.")
+        email_input = None
+    else:
+        email_input = st.selectbox(
+            "User email",
+            filtered_emails,
+            key=f"user_role_email_{gen}",
+        )
+
     role_input = st.selectbox("Role", VALID_ROLES, key=f"user_role_role_{gen}")
 
     needs_dept = role_input in ("MAKER", "CHECKER")
@@ -92,13 +125,15 @@ with tab_upsert:
 
     if st.button("Save user", type="primary", key=f"user_role_save_{gen}"):
         errors = []
-        email_clean = email_input.strip()
-        if not email_clean:
-            errors.append("User email is required.")
-        else:
-            email_error = validate_maya_email(email_clean)
-            if email_error:
-                errors.append(email_error)
+        email_clean = (email_input or "").strip()
+        existing_role_emails = frozenset(
+            roles_df["user_email"].str.lower().tolist()
+        ) if not roles_df.empty else frozenset()
+        email_error = validate_databricks_group_email(
+            email_clean, allowed, existing_role_emails=existing_role_emails
+        )
+        if email_error:
+            errors.append(email_error)
         if needs_dept and not department_options:
             errors.append("Define at least one department in Lookup Values before assigning Maker/Checker.")
         elif needs_dept and not dept_input:
@@ -132,6 +167,7 @@ with tab_upsert:
                 before=None if existing.empty else existing.iloc[0].to_dict(),
                 after=row,
             )
+            fetch_direct_group_user_emails.clear()
             dept_msg = f", department **{dept_input}**" if needs_dept else ""
             bump_and_rerun(
                 "user_role_upsert",
