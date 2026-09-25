@@ -8,6 +8,10 @@ dashboarding.
 
 Source template: `Consolidated KRI File (2026) 1 - Copy.xlsx`, sheet `KRIs`.
 
+## User guide (GitHub Pages)
+
+Role-based guides in [`docs/`](docs/): [Maker](docs/maker.html), [Checker](docs/checker.html), [Admin](docs/admin.html) — published at [margerome13.github.io/kri-dbx-app](https://margerome13.github.io/kri-dbx-app/). Detailed validation rules remain in [`docs/technical-reference.html`](docs/technical-reference.html).
+
 ## Why two Excel-shaped columns become four tables
 
 The source sheet mixes two different things in one wide table:

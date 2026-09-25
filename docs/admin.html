@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Maya KRI — Admin (RCO) guide</title>
+  <link rel="stylesheet" href="guide.css">
+</head>
+<body>
+  <div class="wrap">
+    <a class="nav-back" href="index.html">← All user guides</a>
+    <div class="top">
+      <img src="assets/maya_logo.png" alt="Maya">
+      <h1>Admin guide<span>Risk &amp; Compliance Office</span></h1>
+    </div>
+    <span class="role-badge role-admin">Admin</span>
+    <p class="lede">
+      You run the KRI program: definitions, oversight, access, and corrections. You see <strong>all departments</strong>
+      unless noted otherwise.
+    </p>
+
+    <h2>What you see in the app</h2>
+    <ul>
+      <li><strong>Submit KRI</strong> — submit or <strong>correct Approved</strong> submissions (Makers cannot edit Approved rows).</li>
+      <li><strong>Review</strong> — <strong>Program queue</strong> (all departments), pending review, your own approval/rejection history.</li>
+      <li><strong>Dashboard</strong> — KRI Overview, framework signals (trending Amber, persistent Red, missing submissions, etc.).</li>
+      <li><strong>Administration</strong> — Add a KRI, Manage Existing KRIs, Lookup Values, User Role Manager.</li>
+    </ul>
+
+    <h2>Onboarding a new user (two steps)</h2>
+    <ol class="steps">
+      <li><strong>Databricks:</strong> On the Maya KRI app, use <strong>Share → Can Use</strong> for their workspace account.</li>
+      <li><strong>App role:</strong> <strong>User Role Manager</strong> — pick their email (from the Databricks group list), role, and for Maker/Checker a <strong>Department</strong>.</li>
+    </ol>
+    <p>App access alone is not enough; User Role Manager alone is not enough — both are required.</p>
+
+    <h2>Setting up KRIs and departments</h2>
+    <ol class="steps">
+      <li><strong>Lookup Values</strong> — add standardized names (departments, entities, risk categories, etc.).</li>
+      <li><strong>Add a KRI</strong> — define each KRI for an <strong>Entity + Department</strong> pair (thresholds, frequency, unit).</li>
+      <li>Until a KRI exists in the catalog for that pair, Makers <strong>cannot submit</strong> for that department on Submit KRI (lookup alone is not enough).</li>
+    </ol>
+
+    <h2>Running the review workflow</h2>
+    <ul>
+      <li><strong>Program queue</strong> (Review tab) — filter all submissions; act on <strong>Submitted</strong> items like a Checker when needed.</li>
+      <li><strong>Dashboard → Open program queue</strong> — shortcut when you see pending approval counts.</li>
+      <li>Framework alerts (trending Amber, missing submissions, etc.) use <strong>Approved</strong> data by default — see the checkbox on the dashboard.</li>
+    </ul>
+
+    <h2>Corrections after approval</h2>
+    <p>Makers cannot edit <strong>Approved</strong> submissions. As Admin, use <strong>Submit KRI</strong>, open the KRI and period, edit, and save — status stays <strong>Approved</strong>.</p>
+
+    <h2>Do’s</h2>
+    <div class="box box-do">
+      <ul>
+        <li>Keep Lookup Values and catalog definitions aligned (same department spelling everywhere).</li>
+        <li>Assign every Maker and Checker a <strong>department</strong> in User Role Manager.</li>
+        <li>Use <strong>Manage Existing KRIs</strong> for threshold/status updates; use <strong>Add a KRI</strong> for new definitions.</li>
+        <li>Monitor <strong>Dashboard</strong> signals and the submission workflow block for operational follow-up.</li>
+      </ul>
+    </div>
+
+    <h2>Don’ts</h2>
+    <div class="box box-dont">
+      <ul>
+        <li>Don’t add a department in Lookup Values only and expect Submit KRI to work — add catalog KRIs too.</li>
+        <li>Don’t remove the last Admin in User Role Manager without another Admin in place.</li>
+        <li>Don’t assume Checkers manage the catalog — Checker role is review-only.</li>
+      </ul>
+    </div>
+
+    <h2>If something’s wrong</h2>
+    <div class="box box-tip">
+      <ul>
+        <li><strong>User email not in picklist</strong> — they must be a direct member in the Databricks group directory the app reads.</li>
+        <li><strong>Threshold validation errors</strong> — see <a href="technical-reference.html">technical reference</a> for unit formats.</li>
+        <li><strong>Maker sees wrong department</strong> — update their row in User Role Manager.</li>
+      </ul>
+    </div>
+
+    <p class="footer-note">
+      Maker: <a href="maker.html">guide</a> · Checker: <a href="checker.html">guide</a> ·
+      <a href="technical-reference.html">Technical reference</a>
+    </p>
+  </div>
+</body>
+</html>

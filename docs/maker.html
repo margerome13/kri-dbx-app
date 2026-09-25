@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Maya KRI — Maker guide</title>
+  <link rel="stylesheet" href="guide.css">
+</head>
+<body>
+  <div class="wrap">
+    <a class="nav-back" href="index.html">← All user guides</a>
+    <div class="top">
+      <img src="assets/maya_logo.png" alt="Maya">
+      <h1>Maker guide<span>Submit KRI</span></h1>
+    </div>
+    <span class="role-badge role-maker">Maker</span>
+    <p class="lede">
+      You enter KRI values for <strong>your department only</strong>. A Checker approves or rejects;
+      you do not approve your own submissions.
+    </p>
+
+    <h2>What you see in the app</h2>
+    <p>Sidebar: <strong>Submit KRI</strong> → <strong>Submit / Edit KRI Value</strong>.</p>
+    <p>Four tabs:</p>
+    <ul>
+      <li><strong>Submit / edit</strong> — enter or update values</li>
+      <li><strong>My submissions</strong> — everything you’ve submitted</li>
+      <li><strong>My approved</strong> — submissions a Checker approved</li>
+      <li><strong>My rejections</strong> — submissions sent back to you (read the Checker’s reason)</li>
+    </ul>
+
+    <h2>How to submit or edit a KRI</h2>
+    <ol class="steps">
+      <li>Open <strong>Submit / edit</strong>.</li>
+      <li>Choose <strong>Entity</strong> (e.g. Maya PH). Your <strong>Department</strong> is fixed to the one RCO assigned you.</li>
+      <li>Choose the <strong>KRI</strong> and the <strong>reporting month</strong> (any day in that month is fine; the app uses the whole month).</li>
+      <li>Enter the <strong>Actual value</strong> in the format shown (depends on the KRI — %, days, duration, etc.).</li>
+      <li><strong>RAG</strong> (Green / Amber / Red) is calculated for you from the value and the KRI’s thresholds — you don’t pick it yourself in normal cases.</li>
+      <li>If RAG is <strong>Amber</strong> or <strong>Red</strong>, fill in <strong>Remarks</strong> (cause, actions, target date).</li>
+      <li>Click <strong>Save submission</strong>. Status becomes <strong>Submitted</strong> and waits for your Checker.</li>
+    </ol>
+
+    <h2>After you save</h2>
+    <div class="menu-list">
+      <strong>Submitted</strong>
+      Waiting for Checker. You can still edit until they act.
+    </div>
+    <div class="menu-list">
+      <strong>Rejected</strong>
+      Checker returned it — read their reason on the form or under <strong>My rejections</strong>, fix the value/remarks, save again. It goes back to <strong>Submitted</strong>.
+    </div>
+    <div class="menu-list">
+      <strong>Approved</strong>
+      Locked for you. You cannot edit. Contact RCO <strong>Admin</strong> if a correction is needed.
+    </div>
+
+    <h2>Do’s</h2>
+    <div class="box box-do">
+      <ul>
+        <li>Use the reporting month that matches your KRI’s cadence (monthly, quarterly, etc.).</li>
+        <li>Double-check Actual value format (e.g. <code>75%</code>, whole days, <code>1:30:00</code> for duration KRIs).</li>
+        <li>Add clear remarks whenever RAG is Amber or Red.</li>
+        <li>Use <strong>My rejections</strong> to see Checker feedback before you resubmit.</li>
+      </ul>
+    </div>
+
+    <h2>Don’ts</h2>
+    <div class="box box-dont">
+      <ul>
+        <li>Don’t expect to edit an <strong>Approved</strong> submission — only Admin can correct those.</li>
+        <li>Don’t submit for another department — you only see your assigned department.</li>
+        <li>Don’t pick a department or KRI that isn’t in the catalog yet; if nothing appears, ask RCO to <strong>Add a KRI</strong> for your entity + department first.</li>
+        <li>Don’t ignore rejection reasons — fix and resubmit so the Checker can approve.</li>
+      </ul>
+    </div>
+
+    <h2>If something’s wrong</h2>
+    <div class="box box-tip">
+      <ul>
+        <li><strong>No KRIs listed</strong> — RCO may not have defined Active KRIs for your entity + department yet.</li>
+        <li><strong>Wrong department on your profile</strong> — ask RCO Admin to update <strong>User Role Manager</strong>.</li>
+        <li><strong>Can’t open the app</strong> — you may need Databricks <strong>Share</strong> access in addition to a Maker role.</li>
+      </ul>
+    </div>
+
+    <p class="footer-note">Checker guide: <a href="checker.html">User guide — Checker</a></p>
+  </div>
+</body>
+</html>

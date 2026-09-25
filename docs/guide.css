@@ -1,0 +1,131 @@
+:root {
+  --bg: #f4f7f3;
+  --surface: #fff;
+  --ink: #172019;
+  --muted: #5b6b60;
+  --line: #d9e3da;
+  --green: #00a651;
+  --green-soft: #e1f3e7;
+  --maker: #2f6fed;
+  --maker-soft: #e7eeff;
+  --checker: #a2680d;
+  --checker-soft: #f7ecd8;
+  --admin: #4929aa;
+  --admin-soft: #ece8f5;
+  --dont: #c1432e;
+  --dont-soft: #f8e2de;
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--ink);
+  padding: 24px 20px 64px;
+}
+.wrap { max-width: 720px; margin: 0 auto; }
+.wrap-wide { max-width: 900px; margin: 0 auto; }
+a { color: var(--green); }
+.top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.top img { height: 28px; }
+.top h1 {
+  font-size: 1.35rem;
+  margin: 0;
+  font-weight: 700;
+}
+.top h1 span {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.lede { color: var(--muted); margin: 12px 0 28px; }
+.nav-back {
+  display: inline-block;
+  margin-bottom: 20px;
+  font-size: 0.95rem;
+}
+.role-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 16px;
+}
+.role-maker { background: var(--maker-soft); color: var(--maker); }
+.role-checker { background: var(--checker-soft); color: var(--checker); }
+.role-admin { background: var(--admin-soft); color: var(--admin); }
+h2 {
+  font-size: 1.2rem;
+  margin: 32px 0 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+h2:first-of-type { border-top: none; margin-top: 8px; }
+h3 { font-size: 1.05rem; margin: 20px 0 8px; }
+ol.steps { padding-left: 1.25rem; }
+ol.steps li { margin-bottom: 10px; }
+.card-grid {
+  display: grid;
+  gap: 16px;
+  margin: 28px 0;
+}
+@media (min-width: 640px) {
+  .card-grid { grid-template-columns: repeat(3, 1fr); }
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  transition: box-shadow 0.15s;
+}
+.card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+.card h2 {
+  border: none;
+  margin: 0 0 8px;
+  padding: 0;
+  font-size: 1.1rem;
+}
+.card p { margin: 0; font-size: 0.95rem; color: var(--muted); }
+.box {
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin: 16px 0;
+  font-size: 0.95rem;
+}
+.box-do { background: var(--green-soft); border-left: 4px solid var(--green); }
+.box-dont { background: var(--dont-soft); border-left: 4px solid var(--dont); }
+.box-tip { background: var(--surface); border: 1px solid var(--line); }
+.box ul { margin: 8px 0 0; padding-left: 1.2rem; }
+.box li { margin-bottom: 6px; }
+.menu-list {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin: 12px 0;
+}
+.menu-list strong { display: block; margin-bottom: 4px; }
+.footer-note {
+  margin-top: 40px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 0.9rem;
+  color: var(--muted);
+}

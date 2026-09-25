@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Maya KRI — User Guide</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --bg:#F4F7F3;
+    --surface:#FFFFFF;
+    --surface-2:#EAF0E9;
+    --ink:#172019;
+    --ink-muted:#5B6B60;
+    --line:#D9E3DA;
+    --accent:#00A651;
+    --accent-contrast:#FFFFFF;
+    --accent-soft:#E1F3E7;
+    --maker:#2F6FED;
+    --maker-soft:#E7EEFF;
+    --checker:#A2680D;
+    --checker-soft:#F7ECD8;
+    --rag-green:#00A651;
+    --rag-amber:#A2680D;
+    --rag-red:#C1432E;
+    --rag-red-soft:#F8E2DE;
+    --shadow:rgba(23,32,25,0.08);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0F1712;
+      --surface:#17221B;
+      --surface-2:#1E2B23;
+      --ink:#E8F0EA;
+      --ink-muted:#93A79A;
+      --line:#2B3A31;
+      --accent:#35C77D;
+      --accent-contrast:#07130C;
+      --accent-soft:#173226;
+      --maker:#7CA6FF;
+      --maker-soft:#16233F;
+      --checker:#E0A542;
+      --checker-soft:#332715;
+      --rag-green:#35C77D;
+      --rag-amber:#E0A542;
+      --rag-red:#E2685A;
+      --rag-red-soft:#3A211D;
+      --shadow:rgba(0,0,0,0.5);
+    }
+  }
+
+  *{box-sizing:border-box;}
+  html{background:var(--bg);}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"IBM Plex Sans", system-ui, -apple-system, sans-serif;
+    font-size:16px;
+    line-height:1.55;
+    padding-inline:20px;
+  }
+  img{max-width:100%;}
+  h1,h2,h3{
+    font-family:"Sora", "IBM Plex Sans", sans-serif;
+    color:var(--ink);
+    text-wrap:balance;
+    margin:0;
+  }
+  code, .mono{
+    font-family:"IBM Plex Mono", "SFMono-Regular", monospace;
+    font-variant-numeric:tabular-nums;
+  }
+  a{color:var(--accent);}
+  .wrap{
+    max-width:1180px;
+    margin:0 auto;
+    padding-block:36px 80px;
+  }
+
+  /* ---------- top identity bar ---------- */
+  .topbar{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin-bottom:8px;
+  }
+  .topbar img.logo{height:26px; width:auto; flex:none;}
+  .brand{
+    font-family:"Sora",sans-serif;
+    font-weight:700;
+    font-size:22px;
+    letter-spacing:-0.01em;
+  }
+  .brand small{
+    display:block;
+    font-family:"IBM Plex Sans",sans-serif;
+    font-weight:500;
+    font-size:13px;
+    color:var(--ink-muted);
+    letter-spacing:.02em;
+    text-transform:uppercase;
+    margin-top:1px;
+  }
+  .updated{
+    margin-left:auto;
+    font-size:13px;
+    color:var(--ink-muted);
+    text-align:right;
+    line-height:1.4;
+  }
+
+  .lede{
+    font-size:18px;
+    color:var(--ink-muted);
+    max-width:62ch;
+    margin:18px 0 28px;
+  }
+
+  /* ---------- layout: sticky TOC + content ---------- */
+  .layout{
+    display:grid;
+    grid-template-columns:220px minmax(0,1fr);
+    gap:44px;
+    align-items:start;
+  }
+  nav.toc{
+    position:sticky;
+    top:28px;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    padding-right:8px;
+  }
+  nav.toc a{
+    color:var(--ink-muted);
+    text-decoration:none;
+    font-size:13.5px;
+    padding:6px 10px;
+    border-radius:7px;
+    border-left:2px solid transparent;
+  }
+  nav.toc a:hover{color:var(--ink); background:var(--surface-2);}
+  nav.toc .toc-group{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--ink-muted);
+    margin:14px 0 2px;
+    padding-left:10px;
+    opacity:.75;
+  }
+  nav.toc .toc-group:first-child{margin-top:2px;}
+
+  main{min-width:0;}
+  section{scroll-margin-top:20px;}
+
+  /* ---------- generic panel ---------- */
+  .panel{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:22px 24px;
+    box-shadow:0 1px 2px var(--shadow);
+  }
+  .stack{display:flex; flex-direction:column; gap:16px;}
+
+  h2.section-title{
+    font-size:15px;
+    text-transform:uppercase;
+    letter-spacing:.07em;
+    color:var(--ink-muted);
+    margin:40px 0 14px;
+  }
+  h2.section-title:first-of-type{margin-top:0;}
+
+  /* ---------- role chips ---------- */
+  .chip{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    font-size:12px;
+    font-weight:600;
+    padding:3px 9px 3px 7px;
+    border-radius:100px;
+    white-space:nowrap;
+  }
+  .chip::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;}
+  .chip-admin{background:var(--accent-soft); color:var(--accent);}
+  .chip-maker{background:var(--maker-soft); color:var(--maker);}
+  .chip-checker{background:var(--checker-soft); color:var(--checker);}
+
+  /* ---------- access table ---------- */
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:14.5px;
+  }
+  th,td{
+    text-align:left;
+    padding:10px 14px;
+    border-bottom:1px solid var(--line);
+    vertical-align:top;
+  }
+  th{
+    font-family:"Sora",sans-serif;
+    font-size:12.5px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--ink-muted);
+    background:var(--surface-2);
+  }
+  tr:last-child td{border-bottom:none;}
+  .table-wrap{overflow-x:auto; border-radius:10px; border:1px solid var(--line);}
+  .table-wrap table{border:none;}
+  .table-wrap th:first-child, .table-wrap td:first-child{padding-left:14px;}
+  .footnote{font-size:13px; color:var(--ink-muted); margin-top:10px;}
+
+  /* ---------- changelog callout ---------- */
+  .changelog{
+    border:1px solid var(--accent);
+    background:var(--accent-soft);
+    border-radius:14px;
+    padding:20px 22px;
+  }
+  .changelog h3{font-size:15px; color:var(--accent); margin-bottom:10px;}
+  .changelog ul{margin:0; padding-left:20px;}
+  .changelog li{margin-bottom:6px;}
+  .changelog li:last-child{margin-bottom:0;}
+
+  /* ---------- page cards (sections 1-6) ---------- */
+  .page-card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:22px 24px;
+    box-shadow:0 1px 2px var(--shadow);
+  }
+  .page-head{
+    display:flex;
+    align-items:baseline;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-bottom:6px;
+  }
+  .page-num{
+    font-family:"Sora",sans-serif;
+    font-weight:700;
+    color:var(--accent);
+    font-size:15px;
+  }
+  .page-head h3{font-size:19px;}
+  .page-chips{margin-left:auto; display:flex; gap:6px;}
+  .page-card p.desc{color:var(--ink-muted); margin:6px 0 14px;}
+  .page-card ol, .page-card ul{margin:0; padding-left:22px;}
+  .page-card li{margin-bottom:6px;}
+  .page-card li:last-child{margin-bottom:0;}
+  .page-grid{display:grid; gap:16px;}
+
+  /* ---------- RAG diagram ---------- */
+  figure.diagram{margin:0; padding:22px 24px 18px;}
+  figure.diagram svg{width:100%; height:auto; display:block;}
+  .legend{display:flex; gap:18px; flex-wrap:wrap; margin-top:14px; font-size:13px; color:var(--ink-muted);}
+  .legend span{display:inline-flex; align-items:center; gap:7px;}
+  .swatch{width:11px;height:11px;border-radius:3px; flex:none;}
+  figcaption{
+    margin-top:14px;
+    font-size:14.5px;
+    color:var(--ink-muted);
+    max-width:70ch;
+  }
+  figcaption strong{color:var(--ink); font-weight:600;}
+
+  /* ---------- validation rules ---------- */
+  .rule-group{border:1px solid var(--line); border-radius:12px; overflow:hidden;}
+  .rule-group-head{
+    background:var(--surface-2);
+    padding:12px 18px;
+    font-family:"Sora",sans-serif;
+    font-weight:600;
+    font-size:14.5px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .rule{
+    padding:13px 18px;
+    border-top:1px solid var(--line);
+    font-size:14.5px;
+    display:flex;
+    gap:12px;
+  }
+  .rule .bar{width:3px; border-radius:2px; flex:none; background:var(--line);}
+  .rule.warn .bar{background:var(--rag-amber);}
+  .rule p{margin:0; flex:1;}
+  .tag{
+    font-size:11px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    padding:2px 8px;
+    border-radius:100px;
+    background:var(--checker-soft);
+    color:var(--checker);
+    white-space:nowrap;
+    flex:none;
+    align-self:flex-start;
+    margin-top:1px;
+  }
+
+  .unit-table code{font-size:13.5px;}
+
+  ul.plain{padding-left:20px; margin:0;}
+  ul.plain li{margin-bottom:8px;}
+  ul.plain li:last-child{margin-bottom:0;}
+
+  footer.page-footer{
+    margin-top:56px;
+    padding-top:18px;
+    border-top:1px solid var(--line);
+    font-size:13px;
+    color:var(--ink-muted);
+  }
+
+  @media (max-width: 860px){
+    .layout{grid-template-columns:1fr;}
+    nav.toc{
+      position:static;
+      flex-direction:row;
+      overflow-x:auto;
+      gap:6px;
+      padding-bottom:8px;
+      border-bottom:1px solid var(--line);
+      margin-bottom:18px;
+    }
+    nav.toc .toc-group{display:none;}
+    nav.toc a{
+      background:var(--surface-2);
+      white-space:nowrap;
+      flex:none;
+    }
+    .updated{display:none;}
+    .page-chips{margin-left:0; width:100%;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <img class="logo" src="assets/maya_logo.png" alt="Maya">
+    <div class="brand">KRI<small>Risk &amp; compliance office</small></div>
+    <div class="updated">Technical reference<br>Role guides: <a href="index.html">index</a></div>
+  </div>
+
+  <p class="lede">Technical reference: validations, threshold rules, and page-by-page detail. For everyday use by role, start with the <a href="index.html">role-based user guides</a> (Maker, Checker, Admin).</p>
+
+  <div class="layout">
+
+    <nav class="toc">
+      <a href="#whats-changed">What's changed</a>
+      <a href="#access">Who sees what</a>
+      <a href="#how-rag-works">How RAG is decided</a>
+      <div class="toc-group">Pages</div>
+      <a href="#page-intake">1 · Monthly Intake</a>
+      <a href="#page-dashboard">2 · Dashboard</a>
+      <a href="#page-add">3 · Add a KRI</a>
+      <a href="#page-manage">4 · Manage Existing KRIs</a>
+      <a href="#page-lookup">5 · Lookup Values</a>
+      <a href="#page-roles">6 · User Role Manager</a>
+      <div class="toc-group">Reference</div>
+      <a href="#everywhere">Same everywhere</a>
+      <a href="#validations">Data validations</a>
+    </nav>
+
+    <main>
+
+      <section id="whats-changed">
+        <div class="changelog">
+          <h3>What's changed since the last guide</h3>
+          <ul>
+            <li>The app itself was renamed from "KRI Intake" to <strong>Maya KRI</strong>, and now shows the Maya logo in the sidebar.</li>
+            <li><strong>Monthly Intake no longer asks you to pick a RAG status.</strong> It's computed automatically from the Actual value against the KRI's thresholds and shown read-only — see "How RAG is decided" below.</li>
+            <li><strong>Add a KRI / Manage Existing KRIs</strong> now reject Green/Amber/Red thresholds that overlap or aren't in order, and warn (without blocking) when two thresholds leave an unexplained gap between them.</li>
+            <li><strong>User Role Manager</strong> is a new Administration page (this guide's section 6) — it didn't exist in the previous version.</li>
+            <li>User emails in User Role Manager must now match Maya's own account format, <code>firstname.lastname@paymaya.com</code>.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="access">
+        <h2 class="section-title">Who sees what</h2>
+        <div class="table-wrap">
+          <table>
+            <tr><th>Role</th><th>Access</th></tr>
+            <tr><td><span class="chip chip-admin">ADMIN</span></td><td>Everything in this guide</td></tr>
+            <tr><td><span class="chip chip-maker">MAKER</span></td><td>Monthly Intake only</td></tr>
+            <tr><td><span class="chip chip-checker">CHECKER</span></td><td>Monthly Intake + Manage Existing KRIs</td></tr>
+          </table>
+        </div>
+        <p class="footnote">Your role and logged-in email are shown at the top of every page, badge-colored to match the chips above. Anyone not listed at all in User Role Manager sees an Access Denied page instead of the app.</p>
+      </section>
+
+      <section id="how-rag-works">
+        <h2 class="section-title">How RAG is decided</h2>
+        <div class="panel">
+          <figure class="diagram">
+            <svg viewBox="0 0 640 112" role="img" aria-label="Threshold bar for a Days KRI: Green 1 to 3, Amber 4 to 6, an undefined gap from 7 to 9, and Red 10 to 12. A marker at 8 shows it resolving to Red.">
+              <defs>
+                <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                  <rect width="8" height="8" fill="var(--surface-2)"/>
+                  <rect width="4" height="8" fill="var(--line)"/>
+                </pattern>
+              </defs>
+
+              <!-- background track -->
+              <rect x="48" y="44" width="544" height="40" rx="8" fill="var(--surface-2)"/>
+
+              <!-- bands -->
+              <rect x="93" y="44" width="91" height="40" fill="var(--rag-green)"/>
+              <rect x="229" y="44" width="91" height="40" fill="var(--rag-amber)"/>
+              <rect x="365" y="44" width="91" height="40" fill="url(#hatch)"/>
+              <rect x="501" y="44" width="91" height="40" fill="var(--rag-red)"/>
+
+              <!-- marker at value 8 -->
+              <line x1="411" y1="34" x2="411" y2="44" stroke="var(--rag-red)" stroke-width="2"/>
+              <circle cx="411" cy="27" r="10" fill="var(--rag-red)"/>
+              <text x="411" y="31" text-anchor="middle" font-family="IBM Plex Mono" font-size="11" font-weight="500" fill="var(--accent-contrast)">8</text>
+
+              <!-- ticks -->
+              <g font-family="IBM Plex Mono" font-size="11" fill="var(--ink-muted)">
+                <line x1="93" y1="84" x2="93" y2="90" stroke="var(--ink-muted)"/>
+                <text x="93" y="102" text-anchor="middle">1</text>
+                <line x1="184" y1="84" x2="184" y2="90" stroke="var(--ink-muted)"/>
+                <text x="184" y="102" text-anchor="middle">3</text>
+                <line x1="229" y1="84" x2="229" y2="90" stroke="var(--ink-muted)"/>
+                <text x="229" y="102" text-anchor="middle">4</text>
+                <line x1="320" y1="84" x2="320" y2="90" stroke="var(--ink-muted)"/>
+                <text x="320" y="102" text-anchor="middle">6</text>
+                <line x1="365" y1="84" x2="365" y2="90" stroke="var(--ink-muted)"/>
+                <text x="365" y="102" text-anchor="middle">7</text>
+                <line x1="456" y1="84" x2="456" y2="90" stroke="var(--ink-muted)"/>
+                <text x="456" y="102" text-anchor="middle">9</text>
+                <line x1="501" y1="84" x2="501" y2="90" stroke="var(--ink-muted)"/>
+                <text x="501" y="102" text-anchor="middle">10</text>
+                <line x1="592" y1="84" x2="592" y2="90" stroke="var(--ink-muted)"/>
+                <text x="592" y="102" text-anchor="middle">12</text>
+              </g>
+            </svg>
+            <div class="legend">
+              <span><i class="swatch" style="background:var(--rag-green)"></i>Green 1–3</span>
+              <span><i class="swatch" style="background:var(--rag-amber)"></i>Amber 4–6</span>
+              <span><i class="swatch" style="background:var(--line)"></i>7–9 · no color defined</span>
+              <span><i class="swatch" style="background:var(--rag-red)"></i>Red 10–12</span>
+            </div>
+            <figcaption>
+              Example: a Days KRI defined with Green <code>1-3</code>, Amber <code>4-6</code>, Red <code>10-12</code>. <strong>Add a KRI would warn</strong> that 7–9 isn't covered by any color — worth double-checking, though it doesn't block saving. If someone reports an Actual value of <strong>8</strong> anyway, <strong>Monthly Intake still shows Red</strong>, not a blank or a manual choice: 8 is past Amber's top end (6), so it's read as being on the Red side of the gap. The rule of thumb is directional — the further a value sits past your defined range in one direction, the further it counts in that direction's color.
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <h2 class="section-title" id="pages-heading">The pages</h2>
+
+      <div class="page-grid">
+
+        <div class="page-card" id="page-intake">
+          <div class="page-head">
+            <span class="page-num">1</span>
+            <h3>Monthly Intake — Submit / Edit Monthly KRI</h3>
+            <div class="page-chips"><span class="chip chip-admin">ADMIN</span><span class="chip chip-maker">MAKER</span><span class="chip chip-checker">CHECKER</span></div>
+          </div>
+          <p class="desc">Where departments log their numbers each month.</p>
+          <ol>
+            <li>Pick your Entity → Department → KRI</li>
+            <li>See that KRI's Green/Amber/Red thresholds displayed for reference</li>
+            <li>Choose the reporting month</li>
+            <li>Enter the Actual value — the app shows a live hint for the expected format (e.g. a percentage needs a <code>%</code>, a ratio needs up to 3 decimal places)</li>
+            <li><strong>RAG status now shows itself</strong> as you type, read-only — the app works out Green/Amber/Red from the Actual value against the thresholds above (see "How RAG is decided"). A manual Green/Amber/Red choice only reappears if it genuinely can't be computed — a narrative KRI, or a KRI whose thresholds aren't fully filled in yet</li>
+            <li>Add remarks (cause, action items, target date) — required whenever the status is Amber or Red</li>
+            <li>Save. If a submission already exists for that KRI and month, saving updates it instead of creating a duplicate</li>
+          </ol>
+        </div>
+
+        <div class="page-card" id="page-dashboard">
+          <div class="page-head">
+            <span class="page-num">2</span>
+            <h3>Dashboard — KRI Overview</h3>
+            <div class="page-chips"><span class="chip chip-admin">ADMIN</span></div>
+          </div>
+          <p class="desc">A read-only snapshot across all submitted KRIs.</p>
+          <ul>
+            <li>Filter by entity, how far back to look, and RAG status</li>
+            <li>See counts of Green/Amber/Red at a glance</li>
+            <li>A table of every KRI's latest status</li>
+            <li>Pick one KRI to see its trend over time (a chart for numeric KRIs, a list of statuses for narrative ones)</li>
+            <li>Expand to see the remarks logged for any Amber/Red month</li>
+          </ul>
+        </div>
+
+        <div class="page-card" id="page-add">
+          <div class="page-head">
+            <span class="page-num">3</span>
+            <h3>Add a KRI</h3>
+            <div class="page-chips"><span class="chip chip-admin">ADMIN</span></div>
+          </div>
+          <p class="desc">Where new KRIs get defined before departments can report on them: entity, department, risk category, title, description, monitoring frequency, unit of measure, data source, and the Green/Amber/Red thresholds.</p>
+          <ul>
+            <li>Checks that nothing's missing, the title has no special characters, and each threshold matches the selected unit of measure</li>
+            <li><strong>Checks the three thresholds together</strong>: Green, Amber, and Red must be sequential and non-overlapping — see "Data validations" below for the exact rule</li>
+            <li><strong>Warns (without blocking)</strong> if two thresholds leave a numeric gap wide enough that a real value would match no color</li>
+          </ul>
+        </div>
+
+        <div class="page-card" id="page-manage">
+          <div class="page-head">
+            <span class="page-num">4</span>
+            <h3>Manage Existing KRIs</h3>
+            <div class="page-chips"><span class="chip chip-admin">ADMIN</span><span class="chip chip-checker">CHECKER</span></div>
+          </div>
+          <p class="desc">Where existing KRIs get reviewed and adjusted.</p>
+          <ul>
+            <li>Browse and filter by entity, then pick one</li>
+            <li>Update its thresholds or its status (Active / Inactive / Retired)</li>
+            <li>The same threshold format, sequencing, and gap-warning checks from Add a KRI apply here too</li>
+          </ul>
+        </div>
+
+        <div class="page-card" id="page-lookup">
+          <div class="page-head">
+            <span class="page-num">5</span>
+            <h3>Lookup Values</h3>
+            <div class="page-chips"><span class="chip chip-admin">ADMIN</span></div>
+          </div>
+          <p class="desc">Where the standardized dropdown options live — entity, department, risk category, frequency, unit of measure, and the various status lists.</p>
+          <ul>
+            <li>Add a new option</li>
+            <li>Rename an existing one — a department name change, for example, automatically updates every KRI already using the old name</li>
+            <li>Deactivate one that's no longer needed</li>
+          </ul>
+        </div>
+
+        <div class="page-card" id="page-roles">
+          <div class="page-head">
+            <span class="page-num">6</span>
+            <h3>User Role Manager <span style="color:var(--ink-muted); font-weight:500; font-size:13px;">— new</span></h3>
+            <div class="page-chips"><span class="chip chip-admin">ADMIN</span></div>
+          </div>
+          <p class="desc">Controls who can use the app at all, and what they can see. Changes here take effect immediately — no code change or redeploy needed.</p>
+          <ul>
+            <li><strong>Add / update a user</strong> — enter their Maya email (<code>firstname.lastname@paymaya.com</code>) and pick ADMIN, MAKER, or CHECKER</li>
+            <li><strong>Remove a user</strong> — select them from the current list and remove their access</li>
+            <li>A short hardcoded list always has ADMIN access no matter what's in this table, so the team can never be fully locked out; day to day, the app also refuses to remove or demote the <em>last</em> remaining ADMIN row — add a replacement ADMIN first</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <section id="everywhere">
+        <h2 class="section-title">A few things that work the same everywhere</h2>
+        <div class="panel">
+          <ul class="plain">
+            <li><strong>Nothing you type gets lost.</strong> If a form comes back with a validation error, your entries stay exactly as you left them — nothing clears until you save successfully.</li>
+            <li><strong>Error and success messages show twice</strong> — once at the top of the form and once at the bottom — so you'll see them whether you're at the top of a long form or already scrolled down to the Save button.</li>
+            <li><strong>Forms that add something new blank themselves out</strong> after a successful save, ready for the next entry.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="validations">
+        <h2 class="section-title">Data validations in place</h2>
+        <p style="color:var(--ink-muted); margin:-4px 0 18px; max-width:70ch;">Plain-language rundown of what the app checks before letting you save. Everything below blocks saving unless it's tagged <span class="tag">warns only</span>.</p>
+
+        <div class="stack">
+
+          <div class="rule-group">
+            <div class="rule-group-head">Add a KRI</div>
+            <div class="rule"><div class="bar"></div><p>Nothing can be left blank — every field is required. Miss one, and the app tells you exactly which.</p></div>
+            <div class="rule"><div class="bar"></div><p><strong>KRI title:</strong> letters, numbers, and spaces only — no special characters (no <code>/</code>, <code>-</code>, <code>%</code>, etc.).</p></div>
+            <div class="rule"><div class="bar"></div><p><strong>Thresholds match the unit of measure</strong> — see the format table below.</p></div>
+            <div class="rule"><div class="bar"></div><p>A threshold written as a range or comparison (e.g. <code>>=75%-90%</code>) needs its lower number genuinely lower than the higher one. <code>90%-89%</code> is rejected — 90 isn't lower than 89, so that's an invalid range, not a typo the app should silently accept.</p></div>
+            <div class="rule"><div class="bar"></div><p><strong>Green, Amber, and Red must be sequential and non-overlapping</strong> — either increasing (Green &lt; Amber &lt; Red, e.g. <code>1-3</code> / <code>4-6</code> / <code>7-10</code>) or decreasing (Red &lt; Amber &lt; Green). <code>1-5</code> / <code>4-6</code> / <code>7-10</code> is rejected because Green and Amber overlap on 4–5.</p></div>
+            <div class="rule warn"><div class="bar"></div><p>If two thresholds leave an unexplained numeric gap (e.g. Amber ends at <code>4</code> and Red jumps straight to <code>46</code>), you'll get a heads-up after saving. It still saves — the gap might be deliberate, pending a policy decision — but it's worth a second look.</p><span class="tag">warns only</span></div>
+          </div>
+
+          <div class="rule-group">
+            <div class="rule-group-head">Manage Existing KRIs</div>
+            <div class="rule"><div class="bar"></div><p>Every threshold format, sequencing, and gap-warning rule above applies the same way when you edit a KRI's thresholds.</p></div>
+          </div>
+
+          <div class="rule-group">
+            <div class="rule-group-head">Monthly Intake</div>
+            <div class="rule"><div class="bar"></div><p><strong>Actual value is required</strong> — can't save a blank submission.</p></div>
+            <div class="rule"><div class="bar"></div><p><strong>Actual value must match the KRI's unit of measure</strong> — same format table as Add a KRI, so a Percent KRI needs <code>5%</code>, not just <code>5</code>.</p></div>
+            <div class="rule"><div class="bar"></div><p>Unlike a threshold, the Actual value can't be a range or use <code>&gt;</code>/<code>&lt;</code> — you're reporting one number for the month, not a band. <code>&gt;=75%</code> or <code>75%-90%</code> are rejected here even though they're valid <em>threshold</em> text.</p></div>
+            <div class="rule"><div class="bar"></div><p><strong>RAG status is computed, not chosen</strong> — see "How RAG is decided" above. There's no longer a way to save a value alongside a RAG status that disagrees with it.</p></div>
+            <div class="rule"><div class="bar"></div><p><strong>Remarks are required whenever RAG status is Amber or Red</strong> — you can't flag something as at-risk without explaining why.</p></div>
+          </div>
+
+          <div class="rule-group">
+            <div class="rule-group-head">Lookup Values</div>
+            <div class="rule"><div class="bar"></div><p>Can't add a value that already exists in that category (e.g. you can't add "Finance" as a department twice).</p></div>
+            <div class="rule"><div class="bar"></div><p>The ID is assigned automatically and can never be typed or edited — it just quietly keeps each value's identity stable even if its name changes later.</p></div>
+          </div>
+
+          <div class="rule-group">
+            <div class="rule-group-head">User Role Manager <span style="color:var(--ink-muted); font-weight:500; font-size:12.5px; text-transform:none; letter-spacing:0;">— new</span></div>
+            <div class="rule"><div class="bar"></div><p><strong>User email must be a real Maya account pattern:</strong> <code>firstname.lastname@paymaya.com</code> (e.g. <code>mar.abana@paymaya.com</code>). A different domain, a missing dot, or a middle name/initial all get rejected.</p></div>
+            <div class="rule"><div class="bar"></div><p>The <strong>last remaining ADMIN</strong> in the table can't be removed or demoted to another role — add a replacement ADMIN first.</p></div>
+          </div>
+
+        </div>
+
+        <h2 class="section-title" style="margin-top:36px;">Threshold format, by unit of measure</h2>
+        <div class="table-wrap unit-table">
+          <table>
+            <tr><th>Unit of measure</th><th>What's expected</th><th>Example</th></tr>
+            <tr><td>Percent</td><td>a number with a <code>%</code> sign</td><td><code>75%</code></td></tr>
+            <tr><td>Ratio</td><td>a decimal, up to 3 decimal places, no <code>%</code></td><td><code>0.753</code></td></tr>
+            <tr><td>Days</td><td>a whole number</td><td><code>60</code></td></tr>
+            <tr><td>Count</td><td>a whole number</td><td><code>5</code></td></tr>
+            <tr><td>PHP Amount</td><td>a decimal, up to 2 decimal places</td><td><code>1000000.00</code></td></tr>
+            <tr><td>Status / Narrative</td><td>any plain text</td><td><code>On-time</code></td></tr>
+          </table>
+        </div>
+        <p class="footnote">This same table governs both a KRI's Green/Amber/Red thresholds (Add a KRI, Manage Existing KRIs) and the Actual value reported in Monthly Intake.</p>
+
+      </section>
+
+      <footer class="page-footer">
+        Maya KRI · <a href="https://github.com/margerome13/kri-dbx-app">github.com/margerome13/kri-dbx-app</a>
+      </footer>
+
+    </main>
+  </div>
+</div>
+</body>
+</html>
