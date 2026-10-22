@@ -15,7 +15,7 @@ from utils.db import (
 from utils.forms import bump_and_rerun, render_pending_banner, show_message
 from utils.validation import (
     UNIT_FORMAT_HINTS,
-    find_rag_threshold_gap,
+    validate_no_threshold_gap,
     validate_rag_threshold_sequence,
     validate_threshold,
 )
@@ -54,7 +54,11 @@ else:
         edit_unit = row["unit_of_measure"]
         if edit_unit and edit_unit != "Status / Narrative":
             hint = UNIT_FORMAT_HINTS.get(edit_unit, "a plain number, optionally with %")
-            st.caption(f"Thresholds for **{edit_unit}**: each value must be {hint}.")
+            st.caption(
+                f"Thresholds for **{edit_unit}**: each value must be {hint}. Green and Red "
+                f"are required; Amber is optional for a two-tier (Green/Red only) KRI. "
+                f"Thresholds must be back-to-back with no gap between them."
+            )
         elif edit_unit == "Status / Narrative":
             st.caption("Thresholds for **Status / Narrative** KRIs are free text, e.g. \"On-time\".")
 
@@ -62,7 +66,11 @@ else:
         with col1:
             new_green = st.text_input("Green threshold", value=row["threshold_green"] or "")
         with col2:
-            new_amber = st.text_input("Amber threshold", value=row["threshold_amber"] or "")
+            new_amber = st.text_input(
+                "Amber threshold (optional)",
+                value=row["threshold_amber"] or "",
+                help="Leave blank for a two-tier (Green/Red only) KRI.",
+            )
         with col3:
             new_red = st.text_input("Red threshold", value=row["threshold_red"] or "")
         new_status = st.selectbox(
@@ -74,6 +82,9 @@ else:
 
         if save:
             errors = []
+            if not new_green.strip() or not new_red.strip():
+                errors.append("Green and Red thresholds are both required (Amber is optional).")
+
             for label, value in [
                 ("Green", new_green),
                 ("Amber", new_amber),
@@ -87,6 +98,10 @@ else:
             sequence_error = validate_rag_threshold_sequence(new_green, new_amber, new_red, edit_unit)
             if sequence_error:
                 errors.append(sequence_error)
+
+            gap_error = validate_no_threshold_gap(new_green, new_amber, new_red, edit_unit)
+            if gap_error:
+                errors.append(gap_error)
 
             if errors:
                 show_message(
@@ -112,5 +127,4 @@ else:
                     after={**row.to_dict(), **set_values},
                 )
                 st.cache_data.clear()
-                gap_warning = find_rag_threshold_gap(new_green, new_amber, new_red, edit_unit)
-                bump_and_rerun("edit_kri", "KRI updated.", bump=False, warning=gap_warning)
+                bump_and_rerun("edit_kri", "KRI updated.", bump=False)

@@ -17,9 +17,9 @@ from utils.db import (
 from utils.forms import bump_and_rerun, form_gen, render_pending_banner, show_message
 from utils.validation import (
     UNIT_FORMAT_HINTS,
-    find_rag_threshold_gap,
     missing_required_fields,
     validate_kri_title,
+    validate_no_threshold_gap,
     validate_rag_threshold_sequence,
     validate_threshold,
 )
@@ -71,7 +71,10 @@ with st.form(f"add_kri_form_{gen}"):
         hint = UNIT_FORMAT_HINTS.get(unit_of_measure, "a plain number, optionally with %")
         st.caption(
             f"Thresholds for **{unit_of_measure}**: each value must be {hint}. "
-            f"A range like \">=75%-90%\" is fine; the left side must be lower than the right."
+            f"A range like \">=75%-90%\" is fine; the left side must be lower than the right. "
+            f"Leave Amber blank for a two-tier (Green/Red only) KRI. Green/Amber/Red (or "
+            f"Green/Red) must be back-to-back with no gap between them -- no in-between "
+            f"values left uncovered."
         )
     elif unit_of_measure == "Status / Narrative":
         st.caption("Thresholds for **Status / Narrative** KRIs are free text, e.g. \"On-time\".")
@@ -80,7 +83,11 @@ with st.form(f"add_kri_form_{gen}"):
     with col6:
         threshold_green = st.text_input("Green threshold", key=f"add_kri_green_{gen}")
     with col7:
-        threshold_amber = st.text_input("Amber threshold", key=f"add_kri_amber_{gen}")
+        threshold_amber = st.text_input(
+            "Amber threshold (optional)",
+            key=f"add_kri_amber_{gen}",
+            help="Leave blank for a two-tier KRI that's just Green or Red, with no middle band.",
+        )
     with col8:
         threshold_red = st.text_input("Red threshold", key=f"add_kri_red_{gen}")
 
@@ -106,7 +113,6 @@ with st.form(f"add_kri_form_{gen}"):
                 "Unit of measure": unit_of_measure,
                 "Data source / point of contact": data_source,
                 "Green threshold": threshold_green,
-                "Amber threshold": threshold_amber,
                 "Red threshold": threshold_red,
                 "Date approved": date_approved,
             }
@@ -121,19 +127,28 @@ with st.form(f"add_kri_form_{gen}"):
 
         for label, value in [
             ("Green", threshold_green),
-            ("Amber", threshold_amber),
             ("Red", threshold_red),
         ]:
             if f"{label} threshold" not in missing:
                 threshold_error = validate_threshold(label, value, unit_of_measure)
                 if threshold_error:
                     errors.append(threshold_error)
+        if threshold_amber.strip():
+            amber_error = validate_threshold("Amber", threshold_amber, unit_of_measure)
+            if amber_error:
+                errors.append(amber_error)
 
         sequence_error = validate_rag_threshold_sequence(
             threshold_green, threshold_amber, threshold_red, unit_of_measure
         )
         if sequence_error:
             errors.append(sequence_error)
+
+        gap_error = validate_no_threshold_gap(
+            threshold_green, threshold_amber, threshold_red, unit_of_measure
+        )
+        if gap_error:
+            errors.append(gap_error)
 
         if errors:
             show_message("error", "\n".join(f"- {e}" for e in errors), banner, bottom_banner)
@@ -173,9 +188,4 @@ with st.form(f"add_kri_form_{gen}"):
                 after=row,
             )
             st.cache_data.clear()
-            gap_warning = find_rag_threshold_gap(
-                threshold_green, threshold_amber, threshold_red, unit_of_measure
-            )
-            bump_and_rerun(
-                "add_kri", f"KRI '{kri_title.strip()}' added.", warning=gap_warning
-            )
+            bump_and_rerun("add_kri", f"KRI '{kri_title.strip()}' added.")

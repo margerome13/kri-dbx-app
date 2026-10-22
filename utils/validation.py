@@ -19,12 +19,15 @@ DURATION_RANGE_SPLIT_RE = re.compile(r"(?<=[0-9])-(?=[0-9<>=])")
 
 LEADING_OPERATOR_RE = re.compile(r"^[<>=]*")
 
+DEADLINE_UNIT = "Deadline Date"
+
 UNIT_NUMBER_PATTERNS = {
     "Percent": re.compile(r"^-?\d+(\.\d+)?%$"),
     "Ratio": re.compile(r"^-?\d+(\.\d{1,3})?$"),
     "Days": re.compile(r"^-?\d+$"),
     "PHP Amount": re.compile(r"^-?\d+(\.\d{1,2})?$"),
     "Count": re.compile(r"^-?\d+$"),
+    DEADLINE_UNIT: re.compile(r"^-?\d+$"),
 }
 
 DURATION_UNIT = "Duration (H:MM:SS)"
@@ -39,6 +42,10 @@ UNIT_FORMAT_HINTS = {
     "PHP Amount": "a decimal number with up to 2 decimal places, e.g. 1000000.00",
     "Count": "a whole number, e.g. 5",
     DURATION_UNIT: "duration as H:MM:SS (minutes and seconds 00–59), e.g. 1:30:00",
+    DEADLINE_UNIT: (
+        "a signed whole number of days relative to the deadline: negative = before, "
+        "0 = on the deadline, positive = after, e.g. -1"
+    ),
 }
 
 NARRATIVE_UNIT = "Status / Narrative"
@@ -197,12 +204,34 @@ def validate_rag_threshold_sequence(
     threshold_red: str,
     unit_of_measure: Optional[str] = None,
 ) -> Optional[str]:
+    """Green and Red are always required; Amber may be left blank for a KRI that's
+    strictly binary (e.g. "0 incidents = Green, anything else = Red"). When Amber is
+    blank, only Green vs. Red need to be a valid two-point sequence. When Amber is
+    filled in, all three must form one sequential, non-overlapping band as before.
+    """
     if not unit_of_measure or unit_of_measure == NARRATIVE_UNIT:
         return None
 
     green = parse_threshold_bounds(threshold_green, unit_of_measure)
-    amber = parse_threshold_bounds(threshold_amber, unit_of_measure)
     red = parse_threshold_bounds(threshold_red, unit_of_measure)
+    amber_blank = not (threshold_amber and threshold_amber.strip())
+
+    if amber_blank:
+        if green is None or red is None:
+            return None
+
+        g_lo, g_hi = green
+        r_lo, r_hi = red
+        if (g_hi < r_lo) or (r_hi < g_lo):
+            return None
+
+        return (
+            "Green and Red thresholds must be sequential and non-overlapping when Amber "
+            f"is left blank. Current: Green {_format_bound(g_lo, g_hi, unit_of_measure)}, "
+            f"Red {_format_bound(r_lo, r_hi, unit_of_measure)}."
+        )
+
+    amber = parse_threshold_bounds(threshold_amber, unit_of_measure)
     if green is None or amber is None or red is None:
         return None
 
@@ -231,26 +260,41 @@ GAP_TOLERANCE = {
     "PHP Amount": 0.01,
     "Percent": 1,
     DURATION_UNIT: 1,
+    DEADLINE_UNIT: 1,
 }
 
 
-def find_rag_threshold_gap(
+def validate_no_threshold_gap(
     threshold_green: str,
     threshold_amber: str,
     threshold_red: str,
     unit_of_measure: Optional[str] = None,
 ) -> Optional[str]:
+    """RCO does not allow a numeric gap between adjacent bands -- e.g. Amber "3-4" next
+    to Red "46" leaves 5-45 undefined. Blocks saving (confirmed at the UAT checkpoint;
+    this used to be a non-blocking warning). Works whether Amber is filled in (checks
+    Green/Amber/Red) or deliberately left blank for a two-tier KRI (checks Green/Red
+    only) -- assumes validate_rag_threshold_sequence already passed.
+    """
     if not unit_of_measure or unit_of_measure == NARRATIVE_UNIT:
         return None
 
     green = parse_threshold_bounds(threshold_green, unit_of_measure)
-    amber = parse_threshold_bounds(threshold_amber, unit_of_measure)
     red = parse_threshold_bounds(threshold_red, unit_of_measure)
-    if green is None or amber is None or red is None:
+    if green is None or red is None:
         return None
 
+    amber_blank = not (threshold_amber and threshold_amber.strip())
+    if amber_blank:
+        bands = [("Green", green), ("Red", red)]
+    else:
+        amber = parse_threshold_bounds(threshold_amber, unit_of_measure)
+        if amber is None:
+            return None
+        bands = [("Green", green), ("Amber", amber), ("Red", red)]
+
     tolerance = GAP_TOLERANCE.get(unit_of_measure, 0)
-    ordered = sorted([("Green", green), ("Amber", amber), ("Red", red)], key=lambda item: item[1][0])
+    ordered = sorted(bands, key=lambda item: item[1][0])
 
     gaps = []
     for (low_label, low_bounds), (high_label, high_bounds) in zip(ordered, ordered[1:]):
@@ -259,11 +303,11 @@ def find_rag_threshold_gap(
             gaps.append(
                 f"{low_label} ends at {_format_bound(low_bounds[1], low_bounds[1], unit_of_measure)}, "
                 f"{high_label} starts at {_format_bound(high_bounds[0], high_bounds[0], unit_of_measure)} "
-                "-- values in between match no color."
+                "-- values in between would match no color."
             )
     if not gaps:
         return None
-    return "Possible threshold gap: " + " ".join(gaps)
+    return "Threshold gap not allowed: " + " ".join(gaps)
 
 
 def resolve_rag_status(
@@ -272,6 +316,12 @@ def resolve_rag_status(
     amber_bounds: Optional[tuple[float, float]],
     red_bounds: Optional[tuple[float, float]],
 ) -> Optional[str]:
+    """Amber being None here always means "this KRI has no Amber tier" (an
+    intentional two-tier KRI) rather than "unparseable" -- callers should only pass
+    bounds through from parse_threshold_bounds(), so a genuinely invalid/blank Amber
+    string and a deliberately omitted one look identical here, which is what we want:
+    either way, resolve as a straight Green-vs-Red binary with no middle zone.
+    """
     if actual_numeric is None:
         return None
 
@@ -279,13 +329,20 @@ def resolve_rag_status(
         if bounds and bounds[0] <= actual_numeric <= bounds[1]:
             return label
 
-    if not green_bounds or not amber_bounds or not red_bounds:
+    if not green_bounds or not red_bounds:
         return None
 
-    a_lo, a_hi = amber_bounds
-    low_label = "Green" if green_bounds[0] < red_bounds[0] else "Red"
+    low_label, low_bounds = (
+        ("Green", green_bounds) if green_bounds[0] < red_bounds[0] else ("Red", red_bounds)
+    )
     high_label = "Red" if low_label == "Green" else "Green"
 
+    if amber_bounds is None:
+        # Two-tier: no middle zone to reason about -- anything past the low band's
+        # own range defaults to the other (worse) tier.
+        return low_label if actual_numeric <= low_bounds[1] else high_label
+
+    a_lo, a_hi = amber_bounds
     if actual_numeric < a_lo:
         return low_label
     if actual_numeric > a_hi:
