@@ -179,11 +179,11 @@ directly into SQL strings.
 | Role | Sees | Data scope |
 |---|---|---|
 | ADMIN | Submit KRI, Review Submitted KRIs, KRI Overview, Add a KRI, Manage Existing KRIs, Lookup Values, User Role Manager | All departments |
-| MAKER | Submit KRI only | Assigned **department** only (`kri_user_roles.department`) |
-| CHECKER | Review Submitted KRIs only (approve / reject with reason) | Assigned **department** only |
+| MAKER | Submit KRI, KRI Overview | Assigned **department** only (`kri_user_roles.department`) |
+| CHECKER | Review Submitted KRIs (approve / reject with reason), KRI Overview | Assigned **department** only |
 | *(unlisted)* | Access Denied | — |
 
-MAKER/CHECKER rows must include a department in **User Role Manager**. Approved monthly submissions are read-only for Makers; corrections after approval are **Admin-only**. Design notes: [docs/design/maker-checker-department-scope.md](docs/design/maker-checker-department-scope.md).
+MAKER/CHECKER rows must include a department in **User Role Manager**. Approved monthly submissions are read-only for Makers; corrections after approval are **Admin-only**. On KRI Overview, a MAKER/CHECKER's Department filter is locked to their own department (Entity stays freely choosable, same as Submit KRI) and the "Open program queue" shortcut is Admin-only -- a CHECKER gets a "Review submissions" shortcut to their own queue instead, a MAKER gets neither. Design notes: [docs/design/maker-checker-department-scope.md](docs/design/maker-checker-department-scope.md).
 
 Role membership lives in `dg_dev.sandbox.kri_user_roles` — managed entirely in-app via
 **Administration → User Role Manager** (Admin only): add a user with a role, change

@@ -29,8 +29,8 @@ ROLE_PAGES = {
         "lookup_admin",
         "user_role_admin",
     },
-    "MAKER": {"monthly_intake"},
-    "CHECKER": {"review_submissions"},
+    "MAKER": {"monthly_intake", "dashboard"},
+    "CHECKER": {"review_submissions", "dashboard"},
 }
 
 

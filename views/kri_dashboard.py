@@ -2,6 +2,7 @@ from datetime import date
 
 import streamlit as st
 
+from config.user_roles import get_user_role
 from utils.access import require_page_access
 from utils.dashboard_metrics import (
     CONSECUTIVE_AMBER_PERIODS,
@@ -15,7 +16,8 @@ from utils.dashboard_metrics import (
     recovery_to_green_kris,
     trending_amber_kris,
 )
-from utils.db import TBL_CATALOG, TBL_SUBMISSIONS, fetch_lookup, run_query, sql_literal
+from utils.db import TBL_CATALOG, TBL_SUBMISSIONS, current_user_email, fetch_lookup, run_query, sql_literal
+from utils.department_scope import is_global_viewer, require_scoped_department
 from utils.maya_theme import (
     GRADIENT_AMBER,
     GRADIENT_BLUE,
@@ -30,13 +32,25 @@ from utils.maya_theme import (
 
 require_page_access("dashboard")
 
+user = current_user_email()
+role = get_user_role(user)
+is_admin = is_global_viewer(user)
+user_dept = None if is_admin else require_scoped_department(user)
+
 st.markdown(dashboard_styles(), unsafe_allow_html=True)
 
 st.header("KRI Overview", divider=True)
-st.write(
-    "RCO view of RAG performance across departments. Framework signals highlight "
-    "trending Amber, persistent Red, return to Green, and missing submissions."
-)
+if is_admin:
+    st.write(
+        "RCO view of RAG performance across departments. Framework signals highlight "
+        "trending Amber, persistent Red, return to Green, and missing submissions."
+    )
+else:
+    st.write(
+        f"RAG performance for **{user_dept}**. Framework signals highlight trending "
+        "Amber, persistent Red, return to Green, and missing submissions for your "
+        "own department."
+    )
 
 entities = fetch_lookup("entity")
 departments = fetch_lookup("department")
@@ -47,7 +61,11 @@ col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
     entity_filter = st.selectbox("Entity", ["All"] + entities)
 with col2:
-    department_filter = st.selectbox("Department", ["All"] + departments)
+    if is_admin:
+        department_filter = st.selectbox("Department", ["All"] + departments)
+    else:
+        department_filter = user_dept
+        st.text_input("Department", value=user_dept, disabled=True)
 with col3:
     lookback_months = st.selectbox("Lookback window", [3, 6, 12, 24], index=2)
 with col4:
@@ -157,12 +175,22 @@ with wf1:
         unsafe_allow_html=True,
     )
 with wf2:
-    st.caption("RCO: open the program queue to approve or reject.")
-    if st.button("Open program queue", type="primary", use_container_width=True):
-        st.switch_page("views/kri_review_submissions.py")
+    if is_admin:
+        st.caption("RCO: open the program queue to approve or reject.")
+        if st.button("Open program queue", type="primary", use_container_width=True):
+            st.switch_page("views/kri_review_submissions.py")
+    elif role == "CHECKER":
+        st.caption("Review your department's pending submissions.")
+        if st.button("Review submissions", type="primary", use_container_width=True):
+            st.switch_page("views/kri_review_submissions.py")
+    # MAKER has no Review Submitted KRIs access -- nothing actionable to offer here.
 st.caption(
-    "Uses current **Entity** / **Department** filters above. Manage the full queue under "
-    "**Review → Program queue**."
+    "Uses current **Entity** / **Department** filters above."
+    + (
+        " Manage the full queue under **Review → Program queue**."
+        if is_admin
+        else ""
+    )
 )
 
 st.markdown(
